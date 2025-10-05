@@ -1,0 +1,34 @@
+
+{
+  "manifest_version": 3,
+  "name": "Reddit Bias Detector",
+  "version": "1.0",
+  "description": "Detects potential bias in Reddit posts and comments",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.reddit.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.reddit.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/magnifying.png",
+      "48": "images/eye.png",
+      "128": "images/Bias_Detector.png"
+    }
+  },
+  "icons": {
+    "16": "images/magnifying.png",
+    "48": "images/eye.png",
+    "128": "images/Bias_Detector.png"
+  }
+}

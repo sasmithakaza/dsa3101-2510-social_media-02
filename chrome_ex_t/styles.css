@@ -1,0 +1,113 @@
+/* Styles for bias indicators */
+
+.bias-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    border-left: 3px solid;
+  }
+  
+  .bias-low {
+    background-color: #fff3cd;
+    border-left-color: #ffc107;
+    color: #856404;
+  }
+  
+  .bias-medium {
+    background-color: #ffe5b4;
+    border-left-color: #ff9800;
+    color: #8b4513;
+  }
+  
+  .bias-high {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+  }
+  
+  .bias-badge {
+    font-weight: 700;
+  }
+  
+  .bias-details {
+    font-weight: 400;
+    opacity: 0.8;
+    font-style: italic;
+  }
+  
+  /* Toggle button on Reddit page */
+  #bias-detector-toggle {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    z-index: 9999;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+  }
+  
+  .toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .toggle-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1c;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+  
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #4CAF50;
+    transition: .3s;
+    border-radius: 24px;
+  }
+  
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .toggle-switch input:checked + .toggle-slider {
+    background-color: #dc3545;
+  }
+  
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+  }

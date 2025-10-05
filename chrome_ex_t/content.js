@@ -1,0 +1,192 @@
+// Content script for Reddit bias detection
+
+// Check if we're on Reddit
+if (!window.location.hostname.includes('reddit.com')) {
+    console.log('Not a Reddit page - extension inactive');
+    // Stop execution
+    throw new Error('This extension only works on Reddit pages');
+  }
+  
+  // Global state
+  let isEnabled = true;
+  
+  // Create and inject toggle button into Reddit page
+  function createToggleButton() {
+    // Check if button already exists
+    if (document.getElementById('bias-detector-toggle')) return;
+  
+    const toggleContainer = document.createElement('div');
+    toggleContainer.id = 'bias-detector-toggle';
+    toggleContainer.innerHTML = `
+      <div class="toggle-wrapper">
+        <span class="toggle-label">
+            <span style="color: #4CAF50;">Vibes</span> / <span style="color: #dc3545;">Skeptical</span> Mode
+        </span>    
+        <label class="toggle-switch">
+          <input type="checkbox" id="biasToggleCheckbox" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    `;
+  
+    // Add to page
+    document.body.appendChild(toggleContainer);
+  
+    // Add event listener
+    const checkbox = document.getElementById('biasToggleCheckbox');
+    checkbox.addEventListener('change', (e) => {
+      isEnabled = e.target.checked;
+      chrome.storage.sync.set({ biasDetectionEnabled: isEnabled });
+      
+      if (isEnabled) {
+        scanPosts();
+      } else {
+        removeAllIndicators();
+      }
+    });
+  }
+  
+  // Get initial state from storage
+  chrome.storage.sync.get(['biasDetectionEnabled'], (result) => {
+    isEnabled = result.biasDetectionEnabled !== false; // Default to true
+    
+    // Wait for body to exist, then create toggle button
+  const waitForBody = setInterval(() => {
+    if (document.body) {
+      clearInterval(waitForBody);
+      
+      createToggleButton();
+      
+      // Update checkbox state
+      const checkbox = document.getElementById('biasToggleCheckbox');
+      if (checkbox) {
+        checkbox.checked = isEnabled;
+      }
+      
+      if (isEnabled) {
+        scanPosts();
+      }
+    }
+  }, 100);
+});
+  
+  // Bias indicators - you can expand this
+  const biasKeywords = {
+    emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
+    loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
+    absolute: ['all', 'every', 'none', 'completely', 'totally']
+  };
+  
+  function analyzeBias(text) {
+    const lower = text.toLowerCase();
+    let biasScore = 0;
+    let detectedTypes = [];
+  
+    for (const [type, keywords] of Object.entries(biasKeywords)) {
+      for (const keyword of keywords) {
+        if (lower.includes(keyword)) {
+          biasScore++;
+          if (!detectedTypes.includes(type)) {
+            detectedTypes.push(type);
+          }
+        }
+      }
+    }
+  
+    return { score: biasScore, types: detectedTypes };
+  }
+  
+  function addBiasIndicator(element, biasData) {
+    // Check if indicator already exists
+    if (element.querySelector('.bias-indicator')) return;
+  
+    const indicator = document.createElement('div');
+    indicator.className = 'bias-indicator';
+    
+    let level = 'low';
+    if (biasData.score > 5) level = 'high';
+    else if (biasData.score > 2) level = 'medium';
+  
+    indicator.classList.add(`bias-${level}`);
+    indicator.innerHTML = `
+      <span class="bias-badge">⚠️ Bias Level: ${level.toUpperCase()}</span>
+      <span class="bias-details">${biasData.types.join(', ')}</span>
+    `;
+  
+    element.style.position = 'relative';
+    element.insertBefore(indicator, element.firstChild);
+  }
+  
+  function scanPosts() {
+    if (!isEnabled) return; // Don't scan if disabled
+    
+    // Reddit post selectors (works for both old and new Reddit)
+    const posts = document.querySelectorAll('[data-test-id="post-content"], .entry .usertext-body, shreddit-post');
+    
+    posts.forEach(post => {
+      const textContent = post.textContent || post.innerText;
+      if (textContent && textContent.length > 50) {
+        const biasData = analyzeBias(textContent);
+        if (biasData.score > 0) {
+          addBiasIndicator(post, biasData);
+        }
+      }
+    });
+  
+    // Comments
+    const comments = document.querySelectorAll('.comment .usertext-body, [data-testid="comment"]');
+    comments.forEach(comment => {
+      const textContent = comment.textContent || comment.innerText;
+      if (textContent && textContent.length > 30) {
+        const biasData = analyzeBias(textContent);
+        if (biasData.score > 0) {
+          addBiasIndicator(comment, biasData);
+        }
+      }
+    });
+  }
+  
+  // Function to remove all bias indicators
+  function removeAllIndicators() {
+    const indicators = document.querySelectorAll('.bias-indicator');
+    indicators.forEach(indicator => indicator.remove());
+  }
+  
+  // Initial scan
+  setTimeout(scanPosts, 1000);
+  
+  // Observe for dynamically loaded content
+  const observer = new MutationObserver(() => {
+    if (isEnabled) {
+      scanPosts();
+    }
+  });
+  
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  // Listen for toggle messages from popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'toggleBiasDetection') {
+      isEnabled = request.enabled;
+      
+      if (isEnabled) {
+        scanPosts();
+      } else {
+        removeAllIndicators();
+      }
+      
+      sendResponse({ status: 'success' });
+    }
+    
+    if (request.action === 'rescan') {
+      if (isEnabled) {
+        scanPosts();
+      }
+      sendResponse({ status: 'complete' });
+    }
+  });
+  
+  console.log('Reddit Bias Detector loaded');
