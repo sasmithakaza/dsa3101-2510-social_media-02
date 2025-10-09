@@ -200,3 +200,107 @@ if (!window.location.hostname.includes('reddit.com')) {
   });
   
   console.log('Reddit Bias Detector loaded');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // === RELATED POSTS FEATURE ===
+
+// Function to inject "Find Related Posts" button and hover panel
+function addRelatedPostsButton() {
+  const nav = document.querySelector("header"); // Reddit’s top nav bar
+  if (!nav || document.getElementById("find-related-btn")) return;
+
+  // Create button
+  const btn = document.createElement("button");
+  btn.id = "find-related-btn";
+  btn.textContent = "Find Related Posts";
+  btn.className = "related-btn";
+
+  // Create dropdown panel container
+  const panel = document.createElement("div");
+  panel.id = "related-posts-panel";
+  panel.className = "related-panel";
+  panel.innerHTML = `<p class="loading">Loading related posts...</p>`;
+
+  // Append both elements
+  nav.appendChild(btn);
+  document.body.appendChild(panel);
+
+  // --- Placeholder: fetch top 5 related posts ---
+  async function fetchRelatedPosts() {
+    // Later replace this with your backend call, e.g.:
+    // const res = await fetch(`https://your-backend.com/related?post_id=${postId}`);
+    // const posts = await res.json();
+    return [
+      { title: "Neutral take: Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
+      { title: "Opposite view: Debate on policy", url: "https://www.reddit.com/r/example2", bias: "opposite" },
+      { title: "Neutral: Historical background context", url: "https://www.reddit.com/r/example3", bias: "neutral" },
+      { title: "Opposite stance: Alternative interpretation", url: "https://www.reddit.com/r/example4", bias: "opposite" },
+      { title: "Neutral perspective: Fact-check summary", url: "https://www.reddit.com/r/example5", bias: "neutral" },
+    ];
+  }
+
+  // --- Populate panel content ---
+  async function populatePanel() {
+    const posts = await fetchRelatedPosts();
+    panel.innerHTML = `
+      <h4>Related Posts</h4>
+      ${posts
+        .map(
+          (p) => `
+        <a href="${p.url}" target="_blank" class="related-item ${p.bias}">
+          <span class="related-title">${p.title}</span>
+          <span class="related-bias">${p.bias.toUpperCase()}</span>
+        </a>`
+        )
+        .join("")}
+    `;
+  }
+
+  // --- Hover behavior with animation ---
+  btn.addEventListener("mouseenter", async () => {
+    await populatePanel();
+    const rect = btn.getBoundingClientRect();
+    panel.style.top = `${rect.bottom + 8}px`;
+    panel.style.left = `${rect.left}px`;
+    panel.classList.add("show");
+  });
+
+  // Hide when leaving button (with delay to allow moving to panel)
+  btn.addEventListener("mouseleave", () => {
+    setTimeout(() => {
+      if (!panel.matches(":hover")) {
+        panel.classList.remove("show");
+      }
+    }, 150);
+  });
+
+  // Hide when leaving the panel itself
+  panel.addEventListener("mouseleave", () => {
+    panel.classList.remove("show");
+  });
+}
+
+// Wait for Reddit header to load, then inject
+setTimeout(addRelatedPostsButton, 3000);

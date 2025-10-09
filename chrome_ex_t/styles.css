@@ -111,3 +111,110 @@
   .toggle-switch input:checked + .toggle-slider:before {
     transform: translateX(26px);
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* === Related Posts Feature === */
+.related-btn {
+  margin-left: 12px;
+  padding: 6px 10px;
+  background-color: #0079d3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.related-btn:hover {
+  background-color: #005fa3;
+}
+
+/* Dropdown panel base */
+.related-panel {
+  position: fixed;
+  z-index: 9999;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  width: 320px;
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+
+/* When visible (slide + fade in) */
+.related-panel.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.related-panel h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #333;
+}
+
+.related-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-decoration: none;
+  color: #222;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.related-item:last-child {
+  border-bottom: none;
+}
+
+.related-item:hover {
+  background-color: #f6f7f8;
+}
+
+.related-bias {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+}
+
+.related-item.neutral .related-bias {
+  background-color: #01e42a;
+}
+
+.related-item.opposite .related-bias {
+  background-color: #d18006;
+}
+
+
+
+
+
+
+
+
+
+
+
+
