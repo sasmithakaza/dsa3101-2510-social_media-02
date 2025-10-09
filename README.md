@@ -11,3 +11,8 @@ SEE THE MAGIC HAPPEN
 CHEERS!!
 
 After initial setup, you can just go to reddit website directly to use extension!
+
+To make changes to chrome extension:
+1. Edit code and save files
+2. Go to chrome://extensions → click Reload (⟳) on the extension
+3. Refresh Reddit page
