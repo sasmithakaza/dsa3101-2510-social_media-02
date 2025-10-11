@@ -61,7 +61,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     const button = btnCon.querySelector('button')
     button.addEventListener('click',() => {
-      window.open('https://127.0.0.1:8501', "_blank");
+      window.open('http://192.168.28.19:8501', "_blank");
     })
   }
   
@@ -98,7 +98,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     absolute: ['all', 'every', 'none', 'completely', 'totally']
   };
   
-  //NEED BACKEND
+  //NEED BACKEND: replace this
   function analyzeBias(text) {
     const lowerText = text.toLowerCase();
     let biasScore = 0;
