@@ -1,32 +1,29 @@
-version: "3.8"
 services:
-  db:
+  mysql_db:
     image: mysql:8.0
     container_name: mysql_db
-    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: mydatabase
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
     ports:
       - "3306:3306"
     volumes:
-      - ./mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - db_data:/var/lib/mysql
 
-  importer:
+  csv_importer:
     build: .
     container_name: csv_importer
     depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
+      - mysql_db
     environment:
-      MYSQL_HOST: db
+      MYSQL_HOST: mysql_db
+      MYSQL_DATABASE: mydatabase
       MYSQL_USER: root
       MYSQL_PASSWORD: root
-      MYSQL_DATABASE: mydatabase
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  db_data:
