@@ -8,7 +8,7 @@ This folder contains the backend setup for the project, including model scripts,
 ```
 backend/
 ├── api/
-│   ├── app.py                 # main API entry point
+│   ├── model_api.py           # main API entry point
 │   ├── routes/                # route definitions for posting frontend data to backend & fetching backend data to frontend
 │   └── __init__.py
 ├── models/
