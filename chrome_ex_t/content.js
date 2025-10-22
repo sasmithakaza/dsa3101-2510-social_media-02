@@ -1,6 +1,6 @@
 // Content script for Reddit bias detection
 
-// Check if we're on Reddit
+// check if we're on Reddit
 if (!window.location.hostname.includes('reddit.com')) {
     console.log('Not a Reddit page - extension inactive');
     // Stop execution
@@ -88,7 +88,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         btnCon.style.right = '20px';
         btnCon.style.zIndex = '9999';
 
-        btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16 px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> View Dashboard </button>'
+        btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> View Dashboard </button>'
         
         document.body.appendChild(btnCon)
         const button = btnCon.querySelector('button')
@@ -222,33 +222,116 @@ if (!window.location.hostname.includes('reddit.com')) {
   //   element.style.position = 'relative';
   //   element.insertBefore(biasIndicator, element.firstChild);
   // }
-  
-  function scanPosts() {
-    if (!isEnabled) return; // Don't scan if disabled
-    
-    // Reddit post selectors (works for both old and new Reddit)
-    const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, shreddit-post, [role="article"], [data-testid="search-post"]');
-    
-    posts.forEach(post => {
 
-      let textContent = post.textContent || post.innerText;
-      if (!textContent) {
-        const titlePost = post.querySelector('h3, h2, [data-testid="post-title"], .title, a.title')
-        
-        if (titlePost) {
-          textContent = titlePost.textContent || titlePost.innerText;
-        }
+  // === Full-content helper fucntions ===
+
+  // Keep track of posts we already processed to avoid duplicate work
+  const processedT3 = new Set();
+
+  // Derive a "t3_xxx" id from a post element
+  function getPostId(post) {
+    // New Reddit web component (best case)
+    if (post.matches('shreddit-post')) {
+      const idAttr = post.getAttribute('id'); // often "t3_abc123"
+      if (idAttr) return idAttr;
+      const permalink = post.getAttribute('permalink') || '';
+      const m = permalink.match(/\/comments\/([a-z0-9]+)\//i);
+      if (m) return `t3_${m[1]}`;
+    }
+
+    // Fallback: look for a link to /comments/<id>/
+    const a = post.querySelector('a[href*="/comments/"]');
+    if (a) {
+      const m = a.getAttribute('href')?.match(/\/comments\/([a-z0-9]+)\//i);
+      if (m) return `t3_${m[1]}`;
+    }
+
+    return null;
+  }
+
+  // Fetch full title/selftext via Reddit JSON (public)
+  async function fetchFullPost(t3id) {
+    if (!t3id) return null;
+    const shortId = t3id.replace(/^t3_/, '');
+    const url = `https://www.reddit.com/comments/${shortId}.json?raw_json=1`;
+
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) return null;
+
+    const arr = await res.json();
+    const d = arr?.[0]?.data?.children?.[0]?.data;
+    if (!d) return null;
+
+    return {
+      title: d.title || '',
+      selftext: d.selftext || '',   // full body for self-posts; empty for link/image/video posts
+    };
+  }
+
+  
+  async function scanPosts() {
+    if (!isEnabled) return;
+
+    const isOpenedPostPage = location.pathname.includes('/comments/');
+
+    // ✅ OPENED POST PAGE — Version 1 logic
+    if (isOpenedPostPage) {
+      const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
+      if (!openedPost) {
+        console.log('No opened post found yet, retrying soon...');
+        return;
       }
 
-      if (textContent && textContent.length > 20) {
+      // Extract title and full body text from DOM (no API call)
+      const title =
+        openedPost.querySelector('h1[data-testid="post-title"], h1, h2, [data-click-id="title"]')
+          ?.innerText || '';
+      const body =
+        openedPost.querySelector('[data-click-id="text"], .usertext-body, [data-testid="post-content"]')
+          ?.innerText || '';
+
+      const fullText = `${title}\n${body}`.trim();
+      console.log('Opened post detected — text length:', fullText.length);
+
+      if (fullText.length > 20) {
+        // ✅ DEBUG: Show full text used for analysis (opened post)
+        console.log("=== OPENED POST Bias Analysis Text START ===");
+        console.log(fullText);
+        console.log("=== OPENED POST Bias Analysis Text END ===");
+
+        const biasData = analyzeBias(fullText);
+        if (biasData.score > 0) {
+          addBiasIndicator(openedPost, biasData);
+        }
+      }
+      return; // Stop here, don’t scan feed
+    }
+
+    // ✅ FEED PAGE — Version 2 logic (fetch full text via Reddit JSON API)
+    const posts = document.querySelectorAll(
+      'shreddit-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
+    );
+
+    for (const post of posts) {
+      const t3id = getPostId(post);
+      if (!t3id || processedT3.has(t3id)) continue;
+      processedT3.add(t3id);
+
+      const full = await fetchFullPost(t3id);
+      if (!full) continue;
+
+      const textContent = `${full.title}\n${full.selftext}`.trim();
+
+      if (textContent.length > 20) {
+       
         const biasData = analyzeBias(textContent);
         if (biasData.score > 0) {
           addBiasIndicator(post, biasData);
         }
       }
-
-    });
+    }
   }
+
 
   // async function scanPosts() {
   //   if (!isEnabled) return;
@@ -280,8 +363,8 @@ if (!window.location.hostname.includes('reddit.com')) {
   // Initial scan
   setTimeout(scanPosts, 1000);
   
-  // Observe for dynamically loaded content
-  const observer = new MutationObserver(() => {
+  // !!!!! everytime the page changes (e.g. new posts loaded), run scanPosts() again to analyze new content
+  const observer = new MutationObserver(() => {   
     if (isEnabled) {
       scanPosts();
     }
@@ -314,4 +397,24 @@ if (!window.location.hostname.includes('reddit.com')) {
     }
   });
   
+  // === Detect URL navigation (Reddit is an SPA) ===
+  let lastUrl = location.href;
+
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      console.log('URL changed, rescanning posts...');
+
+      const isOpenedPostPage = location.pathname.includes('/comments/');
+
+      if (isOpenedPostPage) {
+        console.log('Opened post detected - scanning after load');
+        setTimeout(scanPosts, 1500); // Delay gives Reddit time to render title + body
+      } else {
+        // Feed or other pages
+        setTimeout(scanPosts, 800);
+      }
+    }
+  }, 500);
+
   console.log('Reddit Bias Detector loaded');
