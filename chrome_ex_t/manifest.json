@@ -35,5 +35,13 @@
     "16": "images/magnifying.png",
     "48": "images/eye.png",
     "128": "images/Bias_Detector.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sounds/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

@@ -191,7 +191,162 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
     });
   }
-  
+
+// ============================================================
+// 📌 MODAL POPUP CODE (Added Section)
+// ============================================================
+
+// CHANGED SELECTOR to match Reddit's current DOM
+document.addEventListener('click', (event) => {
+  const post = event.target.closest('[data-testid="post-container"], shreddit-post, [data-testid="post-content"]'); 
+  if (post) {
+    console.log('✅ Reddit post clicked:', post);
+    const postTitle = post.querySelector('h3')?.innerText || "Untitled Post"; 
+    const postId = post.id || "unknown";
+    createOverlayPopup(postId, postTitle);
+  }
+});
+
+// Function to create and display modal overlay (Reddit-style)
+function createOverlayPopup(postId, postTitle) {
+  if (document.getElementById('overlay-popup')) return;
+
+// Dynamically create the audio element outside the modal content
+  const sound = document.createElement('audio');
+  sound.id = 'modal-sound';  // Assign an ID to the audio element
+  sound.src = 'sounds/soundeffect1.mp3';  // Make sure this path is correct
+  sound.preload = 'auto';  // Preload the audio
+  document.body.appendChild(sound);  // Append it to the body (outside of the modal)
+
+// Play the sound when the modal is triggered
+  sound.play().catch(error => {
+    console.log("Error playing sound:", error);  // Catch and log any errors
+  });
+
+  // Overlay (dimmed background)
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-popup';
+  overlay.style.position = 'fixed';
+  overlay.style.top = 0;
+  overlay.style.left = 0;
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+  overlay.style.backdropFilter = 'blur(3px)'; // 🔹 soft blur
+  overlay.style.zIndex = '2147483647';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.opacity = '0';
+  overlay.style.transition = 'opacity 0.25s ease';
+
+  // Modal box
+  const popupContent = document.createElement('div');
+  popupContent.style.backgroundColor = '#FF5700';
+  popupContent.style.borderRadius = '20px';
+  popupContent.style.padding = '24px 28px';
+  popupContent.style.width = '600px';
+  popupContent.style.maxWidth = '90%';
+  popupContent.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+  popupContent.style.fontFamily = 'sans-serif';
+  popupContent.style.color = 'white';
+  popupContent.style.lineHeight = '1.6';
+  popupContent.style.transform = 'scale(0.95)';
+  popupContent.style.transition = 'transform 0.25s ease';
+
+popupContent.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h2 style="margin:0;font-size:20px;font-weight:700;color:white;">
+      You're at a risk of falling into an Echo Chamber! <br>
+      Try reading some alternative perspectives:
+    </h2>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+    <!-- Post 1 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0e0e0;padding-bottom:12px;">
+      <a href="https://www.reddit.com/r/example1" target="_blank" class="modal-link"
+         style="color:white;text-decoration:underline;font-size:16px;font-weight:500;word-wrap:break-word;">
+         Noem Approves Spending $200 Million to Buy Jets During Shutdown
+      </a>
+      <span style="background-color:#2F66B2;color:white;font-size:12px;font-weight:600;padding:6px 12px;border-radius:5px;box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);width:auto;min-width:65px;text-align:center;">
+        Left Wing
+      </span>
+    </div>
+
+    <!-- Post 2 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0e0e0;padding-bottom:12px;">
+      <a href="https://www.reddit.com/r/example2" target="_blank" class="modal-link"
+         style="color:white;text-decoration:underline;font-size:16px;font-weight:500;word-wrap:break-word;">
+         Stacey Abrams' Group Closes After Campaign Finance Crimes
+      </a>
+      <span style="background-color:#696969;color:white;font-size:12px;font-weight:600;padding:6px 12px;border-radius:5px;box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);width:auto;min-width:65px;text-align:center;">
+        Neutral
+      </span>
+    </div>
+
+    <!-- Post 3 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0e0e0;padding-bottom:12px;">
+      <a href="https://www.reddit.com/r/example3" target="_blank" class="modal-link"
+         style="color:white;text-decoration:underline;font-size:16px;font-weight:500;word-wrap:break-word;">
+         Dem Thug Who Yelled "Grab a Gun and Shoot ICE" at Chicago Rally Gets FAFO Lesson Hard!
+      </a>
+      <span style="background-color:#e80c25;color:white;font-size:12px;font-weight:600;padding:6px 12px;border-radius:5px;box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);width:auto;min-width:65px;text-align:center;">
+        Right Wing
+      </span>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:center;align-items:center;margin-top:20px;">
+    <button id="ok-button" style="
+      background-color:rgba(0,0,0,0.2);
+      color:white;
+      padding:10px 18px;
+      border:none;
+      border-radius:60px;
+      font-family:sans-serif;
+      font-weight:600;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      cursor:pointer;
+      transition:all 0.2s ease;
+    ">No thanks!</button>
+  </div>
+`;
+
+
+  overlay.appendChild(popupContent);
+  document.body.appendChild(overlay);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1';
+    popupContent.style.transform = 'scale(1)';
+  });
+
+  // Close logic
+  const close = () => {
+    overlay.style.opacity = '0';
+    popupContent.style.transform = 'scale(0.95)';
+    setTimeout(() => overlay.remove(), 250);
+  };
+
+  // Close button
+  document.getElementById('ok-button').addEventListener('click', close);
+
+  // ✅ NEW: Close when clicking any post link
+  const modalLinks = popupContent.querySelectorAll('.modal-link');
+  modalLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      close();
+    });
+  });
+}
+
+
+// ============================================================
+
   // Function to remove all bias indicators
   function removeAllIndicators() {
     const indicators = document.querySelectorAll('.bias-indicator');
