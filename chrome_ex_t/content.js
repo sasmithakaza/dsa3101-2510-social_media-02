@@ -276,7 +276,7 @@ function addRelatedPostsButton() {
   // Create floating button (position set via CSS on #find-related-btn)
   const btn = document.createElement("button");
   btn.id = "find-related-btn";
-  btn.textContent = "Find Related Posts";
+  btn.textContent = "Related Posts";
   btn.className = "related-btn";
 
   // Create dropdown panel container
@@ -304,14 +304,18 @@ function addRelatedPostsButton() {
   async function populatePanel() {
     const posts = await fetchRelatedPosts();
     panel.innerHTML = `
-      <h4>Related Posts</h4>
+    <div class="related-panel__header" role="heading" aria-level="2">
+      Related Posts
+    </div>
+    <div class="related-panel__body">
       ${posts.map(p => `
         <a href="${p.url}" target="_blank" class="related-item ${p.bias}" rel="noopener">
           <span class="related-title" title="${p.title}">${p.title}</span>
           <span class="related-bias">${p.bias.toUpperCase()}</span>
         </a>
       `).join("")}
-    `;
+    </div>
+  `;
   }
 
 btn.addEventListener("mouseenter", async () => {

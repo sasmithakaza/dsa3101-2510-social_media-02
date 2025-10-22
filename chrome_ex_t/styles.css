@@ -184,12 +184,20 @@
   pointer-events: auto;
 }
 
-.related-panel h4 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  color: #333;
-}
 
+
+/* make top section of related posts panel red */
+.related-panel__header {
+  background-color: #ff4500;   
+  color: #fff;
+  padding: 10px 12px;
+
+  margin: -10px -10px 10px;    /* top/right/bottom/left */
+  border-radius: 8px 8px 0 0;  /* round only the top corners */
+
+  font-size: 16px;
+  font-weight: 700;
+}
 
 .related-item {
   display: flex;
