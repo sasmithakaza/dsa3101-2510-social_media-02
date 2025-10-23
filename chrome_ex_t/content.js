@@ -284,16 +284,17 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 
-  
+  // Detects whether user is on 
   async function scanPosts() {
     if (!isEnabled) return;
 
     const isOpenedPostPage = location.pathname.includes('/comments/');
 
-    //  OPENED POST PAGE 
+    // PUTING LABEL ON AN OPENED POST PAGE 
     if (isOpenedPostPage) {
-      const openedPost = document.querySelector(
+      // locates the full post container by trying multiple selectors
         '[data-testid="post-container"], shreddit-post, .Post'
+      const openedPost = document.querySelector(   
       );
       if (!openedPost) {
         console.log('Opened post not found yet, waiting...');
@@ -306,19 +307,20 @@ if (!window.location.hostname.includes('reddit.com')) {
         return;
       }
 
-      // 🎯 Robust Title Selectors
+      // locates post title by trying multiple selectors (multiple selectors to handle cases of outdated reddit pages and some webpages that follow different layouts)
       const titleElement = openedPost.querySelector(
         'h1[data-testid="post-title"], h1, h2, [data-click-id="title"]'
       );
       const title = titleElement?.innerText?.trim() || '';
 
-      // 🎯 Robust Body Selectors
+      // locates post body by trying multiple selectors
       let bodyElement = openedPost.querySelector(
         'shreddit-post-text-body, [data-testid="post-content"], .usertext-body'
       );
       let body = bodyElement?.innerText?.trim() || '';
 
-      // shadow DOM as fallback (if standard DOM didn't return enough content) - on some webpages, reddit's layouts have been changed to shadow DOM
+      // shadow DOM as fallback (if standard DOM didn't return enough content) 
+      // - on some webpages, reddit's layouts have been changed to shadow DOM
       if (!body || body.length < 20) {
         console.log('Body not found with standard DOM. Trying Shadow DOM...');
         body = extractTextWithShadow(openedPost);
@@ -329,11 +331,11 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       if (fullText.length < 20) {
         console.log(' Content not ready yet. Waiting...');
-        return; // Will retry automatically via MutationObserver
+        return; // will retry automatically via MutationObserver 
       }
 
       
-
+      //analyse text and insert label   
       const biasData = analyzeBias(fullText);
       if (biasData.score > 0) {
         addBiasIndicator(openedPost, biasData);
@@ -342,16 +344,19 @@ if (!window.location.hostname.includes('reddit.com')) {
         console.log('No bias detected in opened post.');
       }
 
-      return; // Smart stop: do not continue feed scanning
+      return; // smart stop: do not continue feed scanning
     }
 
-    // FEED PAGE — Version 2 logic (fetch full text via Reddit JSON API)
-    const posts = document.querySelectorAll(
+
+
+    // FEED PAGE — fetch full post text via Reddit JSON API and generate labels
+    const posts = document.querySelectorAll(    //getting post containers in a feed
       'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
     );
 
 
-    // --- NEW: Handle SDUI search-result tiles (title-only layout) ---
+    // Handle SDUI search results (only titles with no preview of post body)) 
+    // {HANDLES CASE OF USER MAKING SINGLE WORD SEARCHES (e.g. "government")}
     const sduiUnits = document.querySelectorAll('[data-testid="sdui-post-unit"]');
     for (const unit of sduiUnits) {
       const t3id = getT3FromSduiUnit(unit);
@@ -369,7 +374,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     }
 
     
-
+    // handles regular HOME FEED posts
     for (const post of posts) {
       const t3id = getPostId(post);
       if (!t3id || processedT3.has(t3id)) continue;
@@ -389,6 +394,8 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
     }
 
+    // handles search results of >1 words (e.g. "I hate trump") 
+    // such search results feed has post titles and few lines of post body displayed
     const searchResults = document.querySelectorAll('[data-testid="search-post-with-content-preview"]');
 
     for (const post of searchResults) {
@@ -435,7 +442,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   //   }
   // }
   
-  // Function to remove all bias indicators
+  // function to remove all bias indicators
   function removeAllIndicators() {
     const indicators = document.querySelectorAll('.bias-indicator');
     indicators.forEach(indicator => indicator.remove());
@@ -458,7 +465,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   
   // Listen for toggle messages from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'toggleBiasDetection') {
+    if (request.action === 'toggleBiasDetection') {       
       isEnabled = request.enabled;
       
       if (isEnabled) {
