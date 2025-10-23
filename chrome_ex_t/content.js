@@ -249,6 +249,14 @@ if (!window.location.hostname.includes('reddit.com')) {
     return null;
   }
 
+  //extract t3 id from SDUI (title-only) search tiles FOR SPECIAL CASE OF SEARCHING ONE WORD!!!! (T3 id is the unique identifier of every post)
+  function getT3FromSduiUnit(unit) {
+    const a = unit.querySelector('a[data-testid="post-title"][href*="/comments/"]');
+    if (!a) return null;
+    const m = a.getAttribute('href')?.match(/\/comments\/([a-z0-9]+)\//i);
+    return m ? `t3_${m[1]}` : null;
+  }
+
   // Fetch full title/selftext via Reddit JSON (public)
   async function fetchFullPost(t3id) {
     if (!t3id) return null;
@@ -303,7 +311,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         '[data-testid="post-container"], shreddit-post, .Post'
       );
       if (!openedPost) {
-        console.log('⏳ Opened post not found yet, waiting...');
+        console.log('Opened post not found yet, waiting...');
         return; // Retry on next mutation
       }
 
@@ -335,7 +343,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       const fullText = `${title}\n${body}`.trim();
 
       if (fullText.length < 20) {
-        console.log('⚠️ Content not ready yet. Waiting...');
+        console.log(' Content not ready yet. Waiting...');
         return; // Will retry automatically via MutationObserver
       }
 
@@ -359,6 +367,24 @@ if (!window.location.hostname.includes('reddit.com')) {
     const posts = document.querySelectorAll(
       'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
     );
+
+
+    // --- NEW: Handle SDUI search-result tiles (title-only layout) ---
+    const sduiUnits = document.querySelectorAll('[data-testid="sdui-post-unit"]');
+    for (const unit of sduiUnits) {
+      const t3id = getT3FromSduiUnit(unit);
+      if (!t3id || processedT3.has(t3id)) continue;
+      processedT3.add(t3id);
+
+      const full = await fetchFullPost(t3id);
+      if (!full) continue;
+
+      const textContent = `${full.title}\n${full.selftext}`.trim();
+      if (textContent.length > 20) {
+        const biasData = analyzeBias(textContent);
+        if (biasData.score > 0) addBiasIndicator(unit, biasData);
+      }
+    }
 
     
 
@@ -489,5 +515,9 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
     }
   }, 500);
+
+
+
+
 
   console.log('Reddit Bias Detector loaded');
