@@ -195,10 +195,10 @@ if (!window.location.hostname.includes('reddit.com')) {
       <span class="bias-badge">⚠️ Bias Level: ${level.toUpperCase()}</span>
       <span class="bias-details">${biasData.types.join(', ')}</span>
     `;
-  
+    
     element.style.position = 'relative';
     element.insertBefore(indicator, element.firstChild);
-  }
+  } 
 
   // function addBiasIndicator(element, biasData) {
   //   if (element.querySelector('.bias-indicator')) return;
@@ -233,7 +233,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       let textContent = post.textContent || post.innerText;
       if (!textContent) {
-        const titlePost = post.querySelector('h3, h2, [data-testid="post-title"], .title, a.title')
+        const titlePost = post.querySelector('h3, h2, [data-testid="post-title-text"], [data-testid="post-title-text"], .title, a.title, , a[slot="title"]')
         
         if (titlePost) {
           textContent = titlePost.textContent || titlePost.innerText;
@@ -246,7 +246,6 @@ if (!window.location.hostname.includes('reddit.com')) {
           addBiasIndicator(post, biasData);
         }
       }
-
     });
   }
 
