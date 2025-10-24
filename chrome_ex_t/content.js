@@ -37,9 +37,11 @@ if (!window.location.hostname.includes('reddit.com')) {
       chrome.storage.sync.set({ biasDetectionEnabled: isEnabled });
       
       if (isEnabled) {
+        processedT3.clear();
         scanPosts();
       } else {
         removeAllIndicators();
+        processedT3.clear();
       }
     });
   }
@@ -124,103 +126,108 @@ if (!window.location.hostname.includes('reddit.com')) {
  
   //NEED BACKEND
   // Bias indicators - you can expand this
-  const biasKeywords = {
-    emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
-    loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
-    absolute: ['all', 'every', 'none', 'completely', 'totally', 'most']
+  // const biasKeywords = {
+  //   emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
+  //   loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
+  //   absolute: ['all', 'every', 'none', 'completely', 'totally', 'most']
     // neutral: ['reportedly', 'allegedly','suggests', 'according', 'research', 'evidence', 'data', 'study', 'research', 'seems', 'claims'],
     // rightWing: ['freedom', 'patriot', 'traditional', 'tax cuts', 'free market', 'border', 'immigrants', 'woke', 'liberal'],
     // leftWing: ['progressive', 'inclusive', 'equality', 'diversity', 'equal', 'climate', 'rights', 'public', 'renewable']
-  };
+  // };
   
   
 
   //NEED BACKEND: replace this
-  function analyzeBias(text) {
-    const lowerText = text.toLowerCase();
-    let biasScore = 0;
-    let detectedTypes = [];
+  // function analyzeBias(text) {
+  //   const lowerText = text.toLowerCase();
+  //   let biasScore = 0;
+  //   let detectedTypes = [];
   
-    for (const [type, keywords] of Object.entries(biasKeywords)) {
-      for (const keyword of keywords) {
-        if (lowerText.includes(keyword)) {
-          biasScore++;
-          if (!detectedTypes.includes(type)) {
-            detectedTypes.push(type);
-          }
-        }
-      }
-    }
-  
-    return { score: biasScore, types: detectedTypes };
-  }
-
-  // const API_URL = "ADD URL HERE"
-
-  // async function analyzeBias(textContent) {
-  //   try {                                                                     //want to see if we can even call the backend
-  //     const response = await fetch(API_URL, {
-  //     method: "POST",
-  //     headers: {"Content-Type": "application/json"}, 
-  //     body: JSON.stringify({textContent})
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error("Failed to fetch bias labelling from the backend but can call backend")
+  //   for (const [type, keywords] of Object.entries(biasKeywords)) {
+  //     for (const keyword of keywords) {
+  //       if (lowerText.includes(keyword)) {
+  //         biasScore++;
+  //         if (!detectedTypes.includes(type)) {
+  //           detectedTypes.push(type);
+  //         }
   //       }
-
-  //     const biasLabel = await response.json()
-  //     return biasLabel
-  //     console.log("Sending data to the back end was a success")
-  //     } catch (err){
-  //       console.error("Cannot call back end at all: ", err)
-  //       return null
-  //     } 
-  // }
-  
-  function addBiasIndicator(element, biasData) {
-    // Check if indicator already exists
-    if (element.querySelector('.bias-indicator')) return;
-  
-    const indicator = document.createElement('div');
-    indicator.className = 'bias-indicator';
-    
-    let level = 'low';
-    if (biasData.score > 5) level = 'high';
-    else if (biasData.score > 2) level = 'medium';
-  
-    indicator.classList.add(`bias-${level}`);
-    indicator.innerHTML = `
-      <span class="bias-badge">⚠️ Bias Level: ${level.toUpperCase()}</span>
-      <span class="bias-details">${biasData.types.join(', ')}</span>
-    `;
-  
-    element.style.position = 'relative';
-    element.insertBefore(indicator, element.firstChild);
-  }
-
-  // function addBiasIndicator(element, biasData) {
-  //   if (element.querySelector('.bias-indicator')) return;
-
-  //   const biasIndicator = document.createElement('div');
-  //   biasIndicator.className = 'bias-indicator';
-
-  //   let label = biasData.label.toLowerCase();
-  //   let labelClass = "bias-neutral"; 
-
-  //   if (label === "left wing") {
-  //     labelClass = "bias-left";
-  //   } else if (
-  //     label === "right wing") {
-  //     labelClass = "bias-right";
+  //     }
   //   }
-
-  //   biasIndicator.classList.add(`labelClass`);
-  //   biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
-
-  //   element.style.position = 'relative';
-  //   element.insertBefore(biasIndicator, element.firstChild);
+  
+  //   return { score: biasScore, types: detectedTypes };
   // }
+
+    const API_URL = "http://127.0.0.1:8000/classify"
+
+    async function analyzeBias(textContent) {
+    try {                                                                     //want to see if we can even call the backend
+       const response = await fetch(API_URL, {
+       method: "POST",
+       headers: {"Content-Type": "application/json"}, 
+       body: JSON.stringify({text: textContent})
+       });
+
+       if (!response.ok) {
+         throw new Error(`Backend returned status: ${response.status}`)
+         }
+
+       const biasLabel = await response.json()
+       console.log("Backend response:", biasLabel)
+       return biasLabel
+
+       } catch (err){
+          if (err.message === "Failed to Fetch") {
+            console.error("Cannot call back end at all, make sure labelling.py is running")
+          } else {
+            console.error("Backend error: ", err)
+          }
+         return null
+       } 
+   }
+  
+  // function addBiasIndicator(element, biasData) {
+  //   // Check if indicator already exists
+  //   if (element.querySelector('.bias-indicator')) return;
+  
+  //   const indicator = document.createElement('div');
+  //   indicator.className = 'bias-indicator';
+    
+  //   let level = 'low';
+  //   if (biasData.score > 5) level = 'high';
+  //   else if (biasData.score > 2) level = 'medium';
+  
+  //   indicator.classList.add(`bias-${level}`);
+  //   indicator.innerHTML = `
+  //     <span class="bias-badge">⚠️ Bias Level: ${level.toUpperCase()}</span>
+  //     <span class="bias-details">${biasData.types.join(', ')}</span>
+  //   `;
+  
+  //   element.style.position = 'relative';
+  //   element.insertBefore(indicator, element.firstChild);
+  // }
+
+  function addBiasIndicator(element, biasData) {
+    if (element.querySelector('.bias-indicator')) return;
+
+    const biasIndicator = document.createElement('div');
+    biasIndicator.className = 'bias-indicator';
+
+    let label = biasData.label.toLowerCase();
+    let labelClass = "bias-neutral"; 
+
+    if (label === "left wing") {
+      labelClass = "bias-left";
+    } else if (
+      label === "right wing") {
+      labelClass = "bias-right";
+    }
+
+    biasIndicator.classList.add(labelClass);
+    biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
+
+    element.style.position = 'relative';
+    element.insertBefore(biasIndicator, element.firstChild);
+  }
 
 
   // HELPER FUNCTIONS  ===
@@ -293,9 +300,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     // PUTING LABEL ON AN OPENED POST PAGE 
     if (isOpenedPostPage) {
       // locates the full post container by trying multiple selectors
-        '[data-testid="post-container"], shreddit-post, .Post'
-      const openedPost = document.querySelector(   
-      );
+      const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
       if (!openedPost) {
         console.log('Opened post not found yet, waiting...');
         return; // Retry on next mutation
@@ -321,11 +326,11 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       // shadow DOM as fallback (if standard DOM didn't return enough content) 
       // - on some webpages, reddit's layouts have been changed to shadow DOM
-      if (!body || body.length < 20) {
-        console.log('Body not found with standard DOM. Trying Shadow DOM...');
-        body = extractTextWithShadow(openedPost);
-        console.log('Shadow DOM extracted content length:', body.length);
-      }
+      // if (!body || body.length < 20) {
+      //   console.log('Body not found with standard DOM. Trying Shadow DOM...');
+      //   body = extractTextWithShadow(openedPost);
+      //   console.log('Shadow DOM extracted content length:', body.length);
+      // }
 
       const fullText = `${title}\n${body}`.trim();
 
@@ -335,9 +340,10 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
 
       
-      //analyse text and insert label   
-      const biasData = analyzeBias(fullText);
-      if (biasData.score > 0) {
+      //analyse text and insert label 
+      await delay(100)  
+      const biasData = await analyzeBias(fullText);
+      if (biasData && biasData.label) {
         addBiasIndicator(openedPost, biasData);
         console.log('Bias indicator added to opened post.');
       } else {
@@ -363,13 +369,16 @@ if (!window.location.hostname.includes('reddit.com')) {
       if (!t3id || processedT3.has(t3id)) continue;
       processedT3.add(t3id);
 
+      await delay(100);
       const full = await fetchFullPost(t3id);
       if (!full) continue;
 
       const textContent = `${full.title}\n${full.selftext}`.trim();
       if (textContent.length > 20) {
-        const biasData = analyzeBias(textContent);
-        if (biasData.score > 0) addBiasIndicator(unit, biasData);
+        const biasData = await analyzeBias(textContent);
+        if (biasData && biasData.label) {
+          addBiasIndicator(unit, biasData)
+        };
       }
     }
 
@@ -380,6 +389,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       if (!t3id || processedT3.has(t3id)) continue;
       processedT3.add(t3id);
 
+      await delay(100);
       const full = await fetchFullPost(t3id);
       if (!full) continue;
 
@@ -387,8 +397,8 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       if (textContent.length > 20) {
        
-        const biasData = analyzeBias(textContent);
-        if (biasData.score > 0) {
+        const biasData = await analyzeBias(textContent);
+        if (biasData && biasData.label) {
           addBiasIndicator(post, biasData);
         }
       }
@@ -409,14 +419,13 @@ if (!window.location.hostname.includes('reddit.com')) {
       const textContent = `${full.title}\n${full.selftext}`.trim();
 
       if (textContent.length > 20) {
-        const biasData = analyzeBias(textContent);
-        if (biasData.score > 0) {
+        const biasData = await analyzeBias(textContent);
+        if (biasData && biasData.label) {
           addBiasIndicator(post, biasData);
           console.log('Bias indicator added to SEARCH RESULT post:', t3id);
         }
       }
     }
-
   }
 
 
@@ -434,10 +443,14 @@ if (!window.location.hostname.includes('reddit.com')) {
 
   //     try {
   //       const biasData = await analyzeBias(textContent);
-
-  //       addBiasIndicator(post, BiasData)
+  //       if (biasData && biasData.label) {
+  //         addBiasIndicator(post, biasData);
+  //         console.log("posts are labelled")
+  //       } else {
+  //         console.warn("Backend returned null or invalid data")
+  //       }
   //     } catch (err) {
-  //       console.error("Error analysing post but could retrieve text content: ", err)
+  //       console.error("Error analysing post: ", err)
   //     }
   //   }
   // }
@@ -503,7 +516,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         setTimeout(scanPosts, 800);
       }
     }
-  }, 500);  //every 500ms (0.5s), URL change is checked
+  }, 500);  //every 0.5s, URL change is checked
 
 
 
