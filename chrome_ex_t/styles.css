@@ -12,22 +12,22 @@
     border-left: 3px solid;
   }
   
-  .bias-low {
-    background-color: #fff3cd;
-    border-left-color: #ffc107;
-    color: #856404;
+  .bias-left {
+    background-color: #2F66B2;
+    border-left-color: #034cb1;
+    color: #ffffff;
   }
   
-  .bias-medium {
-    background-color: #ffe5b4;
-    border-left-color: #ff9800;
-    color: #8b4513;
+  .bias-neutral {
+    background-color: #696969;
+    border-left-color: #2e2e2e;
+    color: #ffffff;
   }
   
-  .bias-high {
-    background-color: #f8d7da;
-    border-left-color: #dc3545;
-    color: #721c24;
+  .bias-right {
+    background-color: #E80C25;
+    border-left-color: #c10017;
+    color: #ffffff;
   }
   
   .bias-badge {

@@ -215,18 +215,23 @@ if (!window.location.hostname.includes('reddit.com')) {
     let label = biasData.label.toLowerCase();
     let labelClass = "bias-neutral"; 
 
-    if (label === "left wing") {
+    if (label === "left") {
       labelClass = "bias-left";
     } else if (
-      label === "right wing") {
+      label === "right") {
       labelClass = "bias-right";
     }
 
     biasIndicator.classList.add(labelClass);
     biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
 
-    element.style.position = 'relative';
-    element.insertBefore(biasIndicator, element.firstChild);
+    biasIndicator.style.display = 'block';
+    biasIndicator.style.textAlign = 'center';
+    biasIndicator.style.width = '15%';
+    biasIndicator.style.margin = '12px 0';
+    biasIndicator.style.clear = 'both'
+    // element.style.position = 'relative';
+    element.appendChild(biasIndicator);
   }
 
 
@@ -340,8 +345,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
 
       
-      //analyse text and insert label 
-      await delay(100)  
+      //analyse text and insert label   
       const biasData = await analyzeBias(fullText);
       if (biasData && biasData.label) {
         addBiasIndicator(openedPost, biasData);
@@ -355,10 +359,10 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 
-    // FEED PAGE — fetch full post text via Reddit JSON API and generate labels
-    const posts = document.querySelectorAll(    //getting post containers in a feed
+    // FEED PAGE — fetch full post text via Reddit JSON API and generate labels, batching it to prevent too many request error
+    const posts = Array.from(document.querySelectorAll(    //getting post containers in a feed
       'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
-    );
+    )).slice(0, 15);
 
 
     // Handle SDUI search results (only titles with no preview of post body)) 
@@ -369,7 +373,6 @@ if (!window.location.hostname.includes('reddit.com')) {
       if (!t3id || processedT3.has(t3id)) continue;
       processedT3.add(t3id);
 
-      await delay(100);
       const full = await fetchFullPost(t3id);
       if (!full) continue;
 
@@ -389,7 +392,6 @@ if (!window.location.hostname.includes('reddit.com')) {
       if (!t3id || processedT3.has(t3id)) continue;
       processedT3.add(t3id);
 
-      await delay(100);
       const full = await fetchFullPost(t3id);
       if (!full) continue;
 
@@ -406,7 +408,9 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     // handles search results of >1 words (e.g. "I hate trump") 
     // such search results feed has post titles and few lines of post body displayed
-    const searchResults = document.querySelectorAll('[data-testid="search-post-with-content-preview"]');
+    const searchResults = Array.from(document.querySelectorAll(
+      '[data-testid="search-post-with-content-preview"]'
+    )).slice(0, 15);
 
     for (const post of searchResults) {
       const t3id = getPostId(post);
