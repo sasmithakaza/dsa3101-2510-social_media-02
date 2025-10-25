@@ -337,14 +337,20 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 
-// === RELATED POSTS FEATURE  ===
-function addRelatedPostsButton() {
-  // Prevent duplicates
-  if (document.getElementById("find-related-btn")) return;
+// ==========================================================
+//                   "RELATED POSTS" BUTTON FEATURE 
+// - on an opened post, "Related Posts" button will open up a panel that shows posts of opposing & neutral bias
+// ==========================================================
 
-  // Create floating button (position set via CSS on #find-related-btn)
+
+function addRelatedPostsButton() {
+
+  // if button already exists, don't make a duplicate one
+  if (document.getElementById("related-posts-btn")) return;
+
+  // Create floating button 
   const btn = document.createElement("button");
-  btn.id = "find-related-btn";
+  btn.id = "related-posts-btn";
   btn.textContent = "Related Posts";
   btn.className = "related-btn";
 
@@ -354,24 +360,26 @@ function addRelatedPostsButton() {
   panel.className = "related-panel";
   panel.innerHTML = `<p class="loading">Loading related posts...</p>`;
 
-  // Mount to BODY (NOT the header)
+  // insert the button and dropdown panel into the page
   document.body.appendChild(btn);
   document.body.appendChild(panel);
 
   // --- Placeholder: fetch top 5 related posts (replace with your backend) ---  #need to write the endpoints
-  // how it'll work: when  user opens a post, send post content to backend for backend to find related posts and then filter out top 5 opposite slant or neutral posts. titles, urls and bias tags of these posts will be sent to front end to be displayed in pane 
-  async function fetchRelatedPosts() {
+  // how it'll work: when  user opens a bias labelled post, send post content & bias label to backend for backend to find related posts 
+  // those 4 posts will be sent to front end to be displayed in pane 
+  async function fetchReldatedPosts() {
     return [
       { title: "Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
       { title: "Debate on policy",            url: "https://www.reddit.com/r/example2", bias: "opposite" },
       { title: "Historical background context of policies in the US constitution and their effects",     url: "https://www.reddit.com/r/example3", bias: "neutral" },
       { title: "Why this policy works",url: "https://www.reddit.com/r/example4", bias: "opposite" },
-      { title: "Global policies and the influence of US politics on global markets",    url: "https://www.reddit.com/r/example5", bias: "neutral" }
     ];
   }
+ 
 
-  async function populatePanel() {
-    const posts = await fetchRelatedPosts();
+  //Adds the posts to the panel
+  async function addPostsToPanel() {
+    const posts = await fetchRelatedPosts();    /////fetch is the API right?????
     panel.innerHTML = `
     <div class="related-panel__header" role="heading" aria-level="2">
       Related Posts
@@ -387,8 +395,10 @@ function addRelatedPostsButton() {
   `;
   }
 
+
+//
 btn.addEventListener("mouseenter", async () => {
-  await populatePanel();
+  await addPostsToPanel();
 
   const rect = btn.getBoundingClientRect();
 
@@ -402,7 +412,7 @@ btn.addEventListener("mouseenter", async () => {
   let left = rect.right - panelWidth;  // 20px small visual gap
   left = Math.max(12, Math.min(left, viewportWidth - panelWidth - 12));
 
-  // Position below the button
+  // Position panel below the button
   const top = rect.bottom + 8;
 
   panel.style.position = "fixed";
@@ -412,38 +422,38 @@ btn.addEventListener("mouseenter", async () => {
 });
 
 
-  // Hide when leaving button (allow time to move into panel)
+  // when mouse leaves the button, give it short grace period to get to the pane. if it doesn't, close panel
   btn.addEventListener("mouseleave", () => {
     setTimeout(() => {
       if (!panel.matches(":hover")) panel.classList.remove("show");
     }, 150);
   });
 
-  // Hide when leaving the panel itself
+  // when mouse leaves panel, close panel
   panel.addEventListener("mouseleave", () => panel.classList.remove("show"));
 
-  // If window is resized, just hide the panel (it will re-open in the right place)
+  // handles case: if browser window being resized, close the pane (when the pane is opened again, it will dynamically resize, adjusting to new window size)
   window.addEventListener("resize", () => panel.classList.remove("show"));
 }
 
 
-// === Find Related Posts button only appears when user opens a bias-tagged Reddit post ===
+// === Ensuring Find Related Posts button only appears when user is on an OPENED and BIAS-LABELLED post ===
 
-// Helper to remove any existing button/panel cleanly
+// Helper to remove existing Related posts button and panel 
 function removeRelatedPostsButton() {
-  document.getElementById("find-related-btn")?.remove();
+  document.getElementById("related-posts-btn")?.remove();
   document.getElementById("related-posts-panel")?.remove();
 }
 
-// Check whether we’re currently viewing a *bias-tagged post*
+// Make Related Posts button appear on correct pages
 function checkForBiasTaggedPost() {
-  // Only on a single-post comments page
+  // check if opened post
   if (!isPostCommentsPage()) {
     removeRelatedPostsButton();
     return;
   }
 
-  // Find the opened post’s main container
+  // check if the opened post content has loaded
   const mainPost =
     document.querySelector("shreddit-post") ||
     document.querySelector('[data-test-id="post-content"]');
@@ -453,17 +463,17 @@ function checkForBiasTaggedPost() {
     return;
   }
 
-  // Require a bias indicator inside THIS post
+  // if post has a bias label, add Related Posts button
   const hasBias = !!mainPost.querySelector(".bias-indicator");
 
   if (hasBias) {
-    if (!document.getElementById("find-related-btn")) {
+    if (!document.getElementById("related-posts-btn")) {
       addRelatedPostsButton();
     }
   } else {
     removeRelatedPostsButton();
 
-    // Watch this post for a bias indicator appearing later
+    // continue checking the post in case bias label loads later (handle slow updating of bias label)
     const observer = new MutationObserver(() => {
       if (mainPost.querySelector(".bias-indicator")) {
         addRelatedPostsButton();
@@ -475,16 +485,21 @@ function checkForBiasTaggedPost() {
 }
 
 
-// Run initial check after bias scan finishes
+// Allow time for bias scan before deciding whether to show Related Posts button
 setTimeout(checkForBiasTaggedPost, 2000);
 
-// Watch for client-side navigation (Reddit SPA changes URL without reload)
+// if user clicks out of the opened, bias labelled post, remove Related Posts button
 let lastUrl = location.href;
 setInterval(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
-    removeRelatedPostsButton();          // clean up immediately on nav
-    setTimeout(checkForBiasTaggedPost, 400); // short settle time
+    removeRelatedPostsButton();         
+    setTimeout(checkForBiasTaggedPost, 400); // if user clicks out, give short time (400ms) for new page to load and then check the new page
   }
 }, 300);
+
+// =========================================================================
+
+
+
 

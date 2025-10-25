@@ -279,7 +279,7 @@ html body a[href]:focus-visible {
 }
 
 /* Floating position for the Related Posts button */
-#find-related-btn {
+#related-posts-btn {
   position: fixed;
   top: 60px;   
   right: 363px;  
