@@ -6,38 +6,32 @@
     gap: 8px;
     padding: 6px 10px;
     margin-bottom: 8px;
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 12px;
     font-weight: 600;
-    border-left: 3px solid;
+    border-left: 4px solid;
   }
   
   .bias-left {
     background-color: #2F66B2;
-    border-left-color: #034cb1;
+    border-left-color: #011d43;
     color: #ffffff;
   }
   
   .bias-neutral {
     background-color: #696969;
-    border-left-color: #2e2e2e;
+    border-left-color: #1b1b1b;
     color: #ffffff;
   }
   
   .bias-right {
     background-color: #E80C25;
-    border-left-color: #c10017;
+    border-left-color: #8f0111;
     color: #ffffff;
   }
   
   .bias-badge {
     font-weight: 700;
-  }
-  
-  .bias-details {
-    font-weight: 400;
-    opacity: 0.8;
-    font-style: italic;
   }
   
   /* Toggle button on Reddit page */
