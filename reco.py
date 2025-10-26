@@ -142,7 +142,8 @@ def find_counter_posts(latest_post_text, bias):
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({
-        "message": "Bias Detection API is running!"
+        "message": "Bias Detection API is running!",
+        "available endpoints": ["/api/health", "/api/related", "/api/recommend"]
     })
 
 # --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
