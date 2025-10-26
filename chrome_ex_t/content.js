@@ -234,6 +234,8 @@ if (!window.location.hostname.includes('reddit.com')) {
       labelClass = "bias-right";
     }
 
+    element.dataset.biasLabel = label;
+
     biasIndicator.classList.add(labelClass);
     biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
 
@@ -353,10 +355,10 @@ if (!window.location.hostname.includes('reddit.com')) {
       const fullText = `${title}\n${body}`.trim();
 
       if (fullText.length < 20) {
-        console.log(' Content not ready yet. Waiting...');
         return; // will retry automatically via MutationObserver 
       }
 
+      
       
       //analyse text and insert label   
       const biasData = await analyzeBias(fullText);
@@ -645,7 +647,7 @@ function removeRelatedPostsButton() {
 }
 
 // Make Related Posts button appear on correct pages
-function checkForBiasTaggedPost() {
+async function checkForBiasTaggedPost() {
 
   // check if opened post
   if (!isPostCommentsPage()) {
@@ -667,7 +669,14 @@ function checkForBiasTaggedPost() {
   const hasBias = !!mainPost.querySelector(".bias-indicator");
 
   if (hasBias) {
-    const uname = getRedditUsername(); 
+    const username = await getRedditUsername(); 
+
+    const subreddit = getOpenedPostSubredditName();
+
+    const label = getBiasLabelForOpenedPost();
+
+    console.log("[Related] user:", username, "subreddit:", subreddit, "label:", label);
+
     if (!document.getElementById("related-posts-btn")) {
       addRelatedPostsButton();
     }
@@ -689,8 +698,9 @@ function checkForBiasTaggedPost() {
 
 
 
+
+//helper function to get Reddit username of post being opened
 let cachedUsername = null;
-//
 async function getRedditUsername() {
   if (cachedUsername) return cachedUsername;
   try {
@@ -705,6 +715,43 @@ async function getRedditUsername() {
     return null;
   }
 }
+
+// helper function for getOpenedPostSubredditName()
+function deepFind(root, predicate) {
+  const stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (predicate(node)) return node;
+    if (node instanceof Element || node instanceof DocumentFragment) {
+      if (node.shadowRoot) stack.push(node.shadowRoot);
+      for (const child of node.children) stack.push(child);
+    }
+  }
+  return null;
+}
+
+function getOpenedPostSubredditName() {
+  const openedPost =
+    document.querySelector('[data-testid="post-container"]') ||
+    document.querySelector('shreddit-post');
+  if (!openedPost) return null;
+
+  // find the subreddit link inside the opened post
+  const link = deepFind(
+    openedPost,
+    el => el.tagName === 'A' && /\/r\/[^/]+/i.test(el.getAttribute('href') || '')
+  );
+  if (!link) return null;
+
+  const m = (link.getAttribute('href') || '').match(/\/r\/([^/]+)/i);
+  return m ? m[1] : null; 
+}
+
+function getBiasLabelForOpenedPost() {
+  const openedPost = document.querySelector('shreddit-post, [data-testid="post-container"]');
+  return openedPost?.dataset?.biasLabel ?? null;
+}
+
 
 
 
