@@ -870,8 +870,13 @@ function getBiasLabelForOpenedPost() {
 
 
 // Allow time for bias scan before deciding whether to show Related Posts button
-setTimeout(checkForBiasTaggedPost, 2000);
-
+setTimeout(() => {
+  if (isPostCommentsPage()) {
+    checkForBiasTaggedPost();
+  } else {
+    removeRelatedPostsButton();
+  }
+}, 2000);
 
 // detects if user moved to a different page by checking change in URL.
 // if change detected, remove everything from the pag, rescan page and add accordingly
