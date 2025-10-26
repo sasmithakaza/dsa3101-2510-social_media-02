@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 import praw
 import os
 import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # ==========================
 # MODEL SETUP
@@ -19,7 +21,7 @@ tokenizer = RobertaTokenizer.from_pretrained(MODEL_PATH)
 model = RobertaForSequenceClassification.from_pretrained(MODEL_PATH)
 model.eval()
 
-label_mapping = {0: "center", 1: "left", 2: "right"}
+label_mapping = {0: "neutral", 1: "left", 2: "right"}
 
 # --- REDDIT API ---
 load_dotenv()  # import client id and secret id from .env
@@ -38,6 +40,14 @@ reddit = praw.Reddit(
 # FASTAPI APP
 # ==========================
 app = FastAPI(title="Reddit Bias Classifier API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (Reddit, your extension, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows POST, GET, OPTIONS, etc.
+    allow_headers=["*"],  # Allows all headers
+)
 
 class TextInput(BaseModel):
     text: str
