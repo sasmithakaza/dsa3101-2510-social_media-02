@@ -539,9 +539,69 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 // ==========================================================
-//                   "RELATED POSTS" BUTTON FEATURE 
+//             "RELATED POSTS" BUTTON FEATURE
 // - on an opened post, "Related Posts" button will open up a panel that shows posts of opposing & neutral bias
 // ==========================================================
+
+const RELATED_API = "http://127.0.0.1:8000/api/related";
+
+let cachedRelatedPosts = null;     // panel data for current page
+let lastRelatedForUrl = null;      // to prevent post views being logged multiple times
+
+function getOpenedPostTitleAndBody() {
+  const openedPost = document.querySelector("shreddit-post, [data-testid='post-container'], [data-test-id='post-content']");
+  if (!openedPost) return { title: "", body: "" };
+
+  const titleEl = openedPost.querySelector("h1[data-testid='post-title'], h1, h2, [data-click-id='title']");
+  const bodyEl  = openedPost.querySelector("shreddit-post-text-body, [data-testid='post-content'], .usertext-body");
+
+  const title = titleEl?.innerText?.trim() || "";
+  const body  = bodyEl?.innerText?.trim() || "";
+  return { title, body };
+}
+
+async function fetchRelatedForOpenedPost() {
+  if (lastRelatedForUrl === location.href) return cachedRelatedPosts;
+
+  const label     = getBiasLabelForOpenedPost();
+  const subreddit = getOpenedPostSubredditName() || "";
+  const { title, body } = getOpenedPostTitleAndBody();
+  const username  = (await getRedditUsername()) || "anonymous";
+
+  if (!label || !subreddit || (!title && !body)) {
+    console.warn("[/related] Missing required fields", { label, subreddit, title, body });
+    return null;
+  }
+
+
+  const allInfo = {
+    user_id: username,
+    title,
+    post: body,
+    label,
+    subreddit
+  };
+
+  try {
+    const res = await fetch(RELATED_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(allInfo)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[/related] HTTP", res.status, text);
+      return null;
+    }
+    const json = await res.json();
+    cachedRelatedPosts = Array.isArray(json.related_posts) ? json.related_posts : [];
+    lastRelatedForUrl = location.href;
+    return cachedRelatedPosts;
+  } catch (e) {
+    console.error("[/related] fetch error", e);
+    return null;
+  }
+}
 
 
 function addRelatedPostsButton() {
@@ -565,36 +625,28 @@ function addRelatedPostsButton() {
   document.body.appendChild(btn);
   document.body.appendChild(panel);
 
-  // --- Placeholder: fetch top 5 related posts (replace with your backend) ---  #need to write the endpoints
-  // how it'll work: when  user opens a bias labelled post, send post content & bias label to backend for backend to find related posts 
-  // those 4 posts will be sent to front end to be displayed in pane 
-  async function fetchRelatedPosts() {
-    return [
-      { title: "Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
-      { title: "Debate on policy",            url: "https://www.reddit.com/r/example2", bias: "opposite" },
-      { title: "Historical background context of policies in the US constitution and their effects",     url: "https://www.reddit.com/r/example3", bias: "neutral" },
-      { title: "Why this policy works",url: "https://www.reddit.com/r/example4", bias: "opposite" },
-    ];
-  }
  
 
   //Adds the posts to the panel
   async function addPostsToPanel() {
-    const posts = await fetchRelatedPosts();    /////fetch is the API right?????
-    panel.innerHTML = `
-    <div class="related-panel__header" role="heading" aria-level="2">
-      Related Posts
-    </div>
+  const posts = Array.isArray(cachedRelatedPosts) ? cachedRelatedPosts : [];
+  if (!posts.length) {
+    panel.innerHTML = `<div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
+      <div class="related-panel__body"><div class="loading">No related posts yet.</div></div>`;
+    return;
+  }
+  panel.innerHTML = `
+    <div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
     <div class="related-panel__body">
       ${posts.map(p => `
-        <a href="${p.url}" target="_blank" class="related-item ${p.bias}" rel="noopener">
+        <a href="${p.url}" target="_blank" class="related-item ${p.leaning || p.bias || ''}" rel="noopener">
           <span class="related-title" title="${p.title}">${p.title}</span>
-          <span class="related-bias">${p.bias.toUpperCase()}</span>
+          <span class="related-bias">${(p.leaning || p.bias || 'neutral').toUpperCase()}</span>
         </a>
       `).join("")}
-    </div>
-  `;
-  }
+    </div>`;
+}
+
 
 
 //
@@ -643,6 +695,8 @@ btn.addEventListener("mouseenter", async () => {
 function removeRelatedPostsButton() {
   document.getElementById("related-posts-btn")?.remove();
   document.getElementById("related-posts-panel")?.remove();
+  cachedRelatedPosts = null;
+  lastRelatedForUrl = null;
 }
 
 
@@ -652,6 +706,8 @@ async function checkForBiasTaggedPost() {
   // check if opened post
   if (!isPostCommentsPage()) {
     removeRelatedPostsButton();
+    cachedRelatedPosts = null;
+    lastRelatedForUrl = null;
     return;
   }
   // check if the opened post content has loaded
@@ -667,32 +723,84 @@ async function checkForBiasTaggedPost() {
 
   // one place to collect and log everything
   const collect = async () => {
+    if (lastRelatedForUrl === location.href && Array.isArray(cachedRelatedPosts)) {
+    console.log("[Related] using cached", cachedRelatedPosts.length, "items");
+    return;
+    }
     const username  = await getRedditUsername();
     const subreddit = getOpenedPostSubredditName();
     const label     = getBiasLabelForOpenedPost();
     console.log("[Related] user:", username, "subreddit:", subreddit, "label:", label);
 
-    if (!document.getElementById("related-posts-btn")) {
-      addRelatedPostsButton();
+
+
+  // get title/body from the opened post (same selectors you use elsewhere)
+    const openedPost = document.querySelector(
+      "shreddit-post, [data-testid='post-container'], [data-test-id='post-content']"
+    );
+    const title = openedPost?.querySelector("h1[data-testid='post-title'], h1, h2, [data-click-id='title']")?.innerText?.trim() || "";
+    const body  = openedPost?.querySelector("shreddit-post-text-body, [data-testid='post-content'], .usertext-body")?.innerText?.trim() || "";
+
+    // fire request
+    try {
+      const res = await fetch(RELATED_API, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          user_id: username || "anonymous",
+          subreddit,
+          label,
+          title,
+          post: body
+        })
+      });
+
+      if (!res.ok) {
+        console.error("[Related] backend error", res.status);
+        cachedRelatedPosts = [];
+        lastRelatedForUrl = location.href;
+        return;
+      }
+
+      const data = await res.json();
+      cachedRelatedPosts = data?.related_posts || [];
+      lastRelatedForUrl = location.href;
+
+      console.log(
+        "[Related] user:", username,
+        "subreddit:", subreddit,
+        "label:", label,
+        "items:", cachedRelatedPosts.length
+      );
+    } catch (e) {
+      console.error("[Related] fetch failed:", e);
+      cachedRelatedPosts = [];
+      lastRelatedForUrl = location.href;
     }
   };
-
+    
   if (hasBias) {
     // if bias label already on screen, collect now
     await collect();
+    // ensure the button exists so the hover can show related posts
+    addRelatedPostsButton();
     return;
   }
 
-  //continue checking the post in case bias label loads later (handle slow updating of bias label)
-  // if bias label appears later, collect info
+  //continue checking the post in case bias label loads later (handle slow updating of bias label) 
+  // if bias label appears later, collect info  
   const observer = new MutationObserver(async () => {
     if (mainPost.querySelector(".bias-indicator")) {
       await collect();
+      addRelatedPostsButton();
       observer.disconnect();
     }
   });
   observer.observe(mainPost, { childList: true, subtree: true });
+
 }
+
+      
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -754,6 +862,8 @@ function getBiasLabelForOpenedPost() {
   const openedPost = document.querySelector('shreddit-post, [data-testid="post-container"]');
   return openedPost?.dataset?.biasLabel ?? null;
 }
+
+
 
 
 
