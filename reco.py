@@ -138,6 +138,13 @@ def find_counter_posts(latest_post_text, bias):
     print(f"Returning {len(recommendations)} total posts (2 neutral + 2 opposite)")
     return recommendations
 
+# --- ROOT ENDPOINT ---
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "message": "Bias Detection API is running!"
+    })
+
 # --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
 @app.route("/api/related", methods=["POST"])
 def related_posts():
