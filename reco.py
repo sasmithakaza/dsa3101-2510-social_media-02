@@ -1,5 +1,5 @@
 # --- IMPORTS ---
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -11,6 +11,33 @@ import praw
 import os
 from dotenv import load_dotenv
 import uvicorn
+from sqlalchemy import create_engine, Table, MetaData
+from sqlalchemy import insert
+from sqlalchemy.orm import sessionmaker, Session
+import json
+
+# --- DATABASE SETUP ---
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@localhost/mydatabase")
+
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Define the user_activity table
+metadata = MetaData()
+user_activity = Table(
+    'user_activity', metadata,
+    autoload_with=engine,
+    autoload=True
+)
+
+# Database dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --- FASTAPI APP ---
 app = FastAPI(title="Recommendation System")
@@ -174,7 +201,7 @@ def home():
 
 # --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
 @app.post("/api/related")
-def related_posts(request: RelatedRequest):
+def related_posts(request: RelatedRequest, db: Session = Depends(get_db)):
     """
     Get related posts from opposite leaning and neutral.
     Use this endpoint to update your database.
@@ -256,6 +283,24 @@ def related_posts(request: RelatedRequest):
 
         print(f"Returning {len(related)} total posts (2 neutral + 2 opposite)")
 
+        # Insert related posts into the database
+        try:
+            query_insert = insert(user_activity).values(
+                user_id=user_id,
+                title=title,
+                body=post,
+                bias_label=leaning,
+                threshold_reached=False,
+                recommendation_triggered=False,
+                recommended_post_urls=json.dumps([p['url'] for p in related])
+            )
+            db.execute(query_insert)
+            db.commit()
+        except Exception as db_error:
+            db.rollback()
+            print(f"Database error: {db_error}")
+            return JSONResponse({"error": "Database insertion failed", "details": str(db_error)}, status_code=500)
+
         # Return posts
         return {
             "related_posts": related  
@@ -269,7 +314,7 @@ def related_posts(request: RelatedRequest):
 
 # --- MAIN RECOMMENDATION ENDPOINT ---
 @app.post("/api/recommend")
-def recommend(request: RecommendRequest):
+def recommend(request: RecommendRequest, db: Session = Depends(get_db)):
     """
     Main recommendation endpoint based on user bias tracking.
     
@@ -305,6 +350,28 @@ def recommend(request: RecommendRequest):
         user_id = request.user_id
         if not user_id:
             return JSONResponse({"error": "user_id is required"}, status_code = 400)
+
+        # Classify the post using the bias detection model
+        leaning = classifier(text)
+
+        # Insert user activity into the database
+        try:
+            query_insert = insert(user_activity).values(
+                user_id=user_id,
+                title=title,
+                body=post,
+                bias_label=leaning,
+                threshold_reached=False,
+                recommendation_triggered=False
+            )
+            result = db.execute(query_insert)
+            db.commit()
+            # Get the inserted row ID for later update
+            inserted_id = result.lastrowid
+        except Exception as db_error:
+            db.rollback()
+            print(f"Database error: {db_error}")
+            return JSONResponse({"error": "Database insertion failed"}, status_code=500)
         
         # Update bias counts
         if leaning in ["left", "right"]:
@@ -329,6 +396,25 @@ def recommend(request: RecommendRequest):
         if bias:
             # Get 2 neutral + 2 opposite recommendations
             recommendations = find_counter_posts(text, bias)
+            
+            # Insert recommendation info into the database
+            recommended_urls = [rec['url'] for rec in recommendations[:4]]  # Top 4 recommended posts
+            
+            # Update the user_activity table with recommendation info using the inserted row ID
+            try:
+                update_query = user_activity.update().where(
+                    user_activity.c.id == inserted_id
+                ).values(
+                    recommendation_triggered=True,
+                    recommended_post_urls=json.dumps(recommended_urls)
+                )
+                db.execute(update_query)
+                db.commit()
+            except Exception as db_error:
+                db.rollback()
+                print(f"Database update error: {db_error}")
+                # Don't fail the request if update fails, just log it
+            
             return {
                 "user_id": user_id,
                 "status": "bias_detected",
