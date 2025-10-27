@@ -1,5 +1,8 @@
 # --- IMPORTS ---
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from transformers import RobertaTokenizer, RobertaForSequenceClassification
 import torch
 from keybert import KeyBERT
@@ -7,11 +10,18 @@ from collections import defaultdict
 import praw
 import os
 from dotenv import load_dotenv
-from flask_cors import CORS 
+import uvicorn
 
-# --- FLASK APP ---
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# --- FASTAPI APP ---
+app = FastAPI(title="Recommendation System")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (Reddit, your extension, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows POST, GET, OPTIONS, etc.
+    allow_headers=["*"],  # Allows all headers
+)
 
 # --- LOAD MODEL ---
 model_path = './bias_detection_model_roberta'  # Update to your path
@@ -40,8 +50,22 @@ user_agent="counter_recommendation_system"
 reddit = praw.Reddit(
     client_id=client_id,
     client_secret=secret_id,
-    user_agent="counter_recommendation_system"
+    user_agent=user_agent
 )
+
+# --- USING PYDANTIC FOR REQUESTS ---
+class RelatedRequest(BaseModel):
+    user_id:str
+    title: str = ""
+    post: str = ""
+    label: str
+    subreddit: str
+
+class RecommendRequest(BaseModel):
+    user_id:str
+    title: str = ""
+    post: str = ""
+    label: str
 
 # --- CLASSIFY POST ---
 def classifier(text):
@@ -141,16 +165,16 @@ def find_counter_posts(latest_post_text, bias):
     return recommendations
 
 # --- ROOT ENDPOINT ---
-@app.route("/", methods=["GET"])
+@app.get("/")
 def home():
-    return jsonify({
+    return {
         "message": "Bias Detection API is running!",
         "available endpoints": ["/api/health", "/api/related", "/api/recommend"]
-    })
+    }
 
 # --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
-@app.route("/api/related", methods=["POST"])
-def related_posts():
+@app.post("/api/related")
+def related_posts(request: RelatedRequest):
     """
     Get related posts from opposite leaning and neutral.
     Use this endpoint to update your database.
@@ -167,33 +191,28 @@ def related_posts():
     - neutral: 2 neutral posts + 1 left + 1 right leaning posts
     """
     try:
-        # Get and validate input
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
         # Validate all required fields
-        user_id = data.get("user_id")
+        user_id = request.user_id
         if not user_id:
-            return jsonify({"error": "user_id required"}), 400
+            return JSONResponse({"error": "user_id required"}, status_code = 400)
 
-        title = data.get("title", "")
-        post = data.get("post", "")
+        title = request.title
+        post = request.post
         text = (title + " " + post).strip()
 
-        leaning = data.get("label")
+        leaning = request.label
         if not leaning:
-            return jsonify({"error": "label required"}), 400
+            return JSONResponse({"error": "label required"}, status_code = 400)
 
         if leaning not in ["left", "right", "neutral"]:
-            return jsonify({"error": "label must be 'left', 'right' or 'neutral' for related posts"}), 400
+            return JSONResponse({"error": "label must be 'left', 'right' or 'neutral' for related posts"}, status_code = 400)
 
-        subreddit = data.get("subreddit")
+        subreddit = request.subreddit
         if not subreddit:
-            return jsonify({"error": "subreddit required"}), 400
+            return JSONResponse({"error": "subreddit required"}, status_code = 400)
 
         if not text:
-            return jsonify({"error": "title or post required"}), 400
+            return JSONResponse({"error": "title or post required"}, status_code = 400)
 
         print(f"\n{'='*50}")
         print(f"Related posts request")
@@ -204,7 +223,7 @@ def related_posts():
         keywords = extract_keywords(text)
         if not keywords:
             print("No keywords found")
-            return jsonify({"related_posts": []})
+            return {"related_posts": []}
 
         print(f"Keywords: {keywords}")
         query = " ".join(keywords)
@@ -238,19 +257,19 @@ def related_posts():
         print(f"Returning {len(related)} total posts (2 neutral + 2 opposite)")
 
         # Return posts
-        return jsonify({
+        return {
             "related_posts": related  
-        })
+        }
 
     except Exception as e:
         print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse({"error": str(e)}, status_code = 500)
 
 # --- MAIN RECOMMENDATION ENDPOINT ---
-@app.route("/api/recommend", methods=["POST"])
-def recommend():
+@app.post("/api/recommend")
+def recommend(request: RecommendRequest):
     """
     Main recommendation endpoint based on user bias tracking.
     
@@ -262,24 +281,20 @@ def recommend():
     Returns: 2 neutral posts + 2 opposite leaning posts when bias threshold reached
     """
     try:
-        # Get and validate input
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        title = data.get("title", "")
-        post = data.get("post", "")
+        # Validate all required fields
+        title = request.title
+        post = request.post
         text = (title + " " + post).strip()
 
-        leaning = data.get("label")
+        leaning = request.label
         if not leaning:
-            return jsonify({"error": "label required"}), 400
+            return JSONResponse({"error": "label required"}, status_code = 400)
 
         if leaning not in ["left", "right", "neutral"]:
-            return jsonify({"error": "label must be 'left', 'right', or 'neutral'"}), 400
+            return JSONResponse({"error": "label must be 'left', 'right', or 'neutral'"}, status_code = 400)
 
         if not text:
-            return jsonify({"error": "title or post required"}), 400
+            return JSONResponse({"error": "title or post required"}, status_code = 400)
 
         print(f"\n{'='*50}")
         print(f"Recommend request")
@@ -287,9 +302,9 @@ def recommend():
 
         # For tracking purposes, we need some identifier
         # In this case, we will be using user_id as the identifier
-        user_id = data.get("user_id")
+        user_id = request.user_id
         if not user_id:
-            return jsonify({"error": "user_id is required"}), 400
+            return JSONResponse({"error": "user_id is required"}, status_code = 400)
         
         # Update bias counts
         if leaning in ["left", "right"]:
@@ -314,31 +329,31 @@ def recommend():
         if bias:
             # Get 2 neutral + 2 opposite recommendations
             recommendations = find_counter_posts(text, bias)
-            return jsonify({
+            return {
                 "user_id": user_id,
                 "status": "bias_detected",
                 "bias_detected": True,
                 "bias": bias,
                 "recommendations": recommendations  # 2 neutral + 2 opposite
-            })
+            }
 
-        return '', 204
+        return Response(status_code = 204)
 
     except Exception as e:
         print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse({"error": str(e)}, status_code = 500)
 
 # --- HEALTH CHECK ---
-@app.route("/api/health", methods=["GET"])
+@app.get("/api/health")
 def health():
     """Check if API is running"""
-    return jsonify({
+    return {
         "status": "healthy",
         "model_loaded": model is not None,
         "reddit_connected": reddit is not None
-    })
+    }
 
 # --- RUN APP ---
 if __name__ == "__main__":
@@ -352,4 +367,4 @@ if __name__ == "__main__":
     print("neutral postsreturns related posts: 2 neutral + 1 of each leaning post")
     print("=" * 50 + "\n")
 
-    app.run(host="0.0.0.0", port=8001, debug=True)
+    uvicorn.run("reco:app", host="0.0.0.0", port=8001, reload=True)
