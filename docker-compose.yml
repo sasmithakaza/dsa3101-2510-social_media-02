@@ -3,7 +3,7 @@ services:
   db:
     image: mysql:8.0
     container_name: mysql_db
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: mydatabase
@@ -32,27 +32,3 @@ services:
       MYSQL_USER: root
       MYSQL_PASSWORD: root
       MYSQL_DATABASE: mydatabase
-
-  dashboarddemo:
-    build: dashboarddemo
-    restart: unless-stopped
-    ports:
-      - "8501:8501"
-    depends_on:
-      - mysql_db
-    environment:
-      - DATABASE_URL=mysql+pymysql://root:root@mysql_db:3306/mydatabase
-      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=poll
-    volumes:
-      - .:/app  # Hot reloading for development
-    networks:
-      - app-network
-
-# Volumes for data persistence
-volumes:
-  mysql_data:
-
-# Network for service communication
-networks:
-  app-network:
-    driver: bridge
