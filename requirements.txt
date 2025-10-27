@@ -10,3 +10,4 @@ os
 uvicorn
 keybert
 collections
+typing
