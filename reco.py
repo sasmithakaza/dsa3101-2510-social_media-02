@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, Table, MetaData
 from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker, Session
 import json
+from typing import List
 
 # --- DATABASE SETUP ---
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@localhost/mydatabase")
@@ -40,7 +41,7 @@ def get_db():
         db.close()
 
 # --- FASTAPI APP ---
-app = FastAPI(title="Recommendation System")
+app = FastAPI(title="Reddit Extension Backend System")
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +50,8 @@ app.add_middleware(
     allow_methods=["*"],  # Allows POST, GET, OPTIONS, etc.
     allow_headers=["*"],  # Allows all headers
 )
+
+label_mapping = {0: "neutral", 1: "left", 2: "right"}
 
 # --- LOAD MODEL ---
 model_path = './bias_detection_model_roberta'  # Update to your path
@@ -93,6 +96,14 @@ class RecommendRequest(BaseModel):
     title: str = ""
     post: str = ""
     label: str
+
+class TextInput(BaseModel):
+    title: str = ""
+    post: str = ""
+
+class BatchInput(BaseModel):
+    titles: List[str]  # List of titles
+    posts: List[str]   # List of posts
 
 # --- CLASSIFY POST ---
 def classifier(text):
@@ -196,8 +207,55 @@ def find_counter_posts(latest_post_text, bias):
 def home():
     return {
         "message": "Bias Detection API is running!",
-        "available endpoints": ["/api/health", "/api/related", "/api/recommend"]
+        "available endpoints": ["/api/health", "/api/related", "/api/recommend", "/classify", "/classify_batch"]
     }
+
+# --- POST LABELLING ENDPOINT ---
+@app.post("/classify")
+def classify_single(input_data: TextInput):
+    text = (input_data.title + " " + input_data.post).strip()
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=256)
+    with torch.no_grad():
+        logits = model(**inputs).logits
+        probs = torch.softmax(logits, dim=1)
+        pred = torch.argmax(probs, dim=1).item()
+        confidence = torch.max(probs).item()
+
+    return {
+        "label": label_mapping[pred],
+        "confidence": round(confidence, 4)
+    }
+
+@app.post("/classify_batch")
+def classify_batch(input_data: BatchInput):
+    # Ensure the lists are of the same length
+    if len(input_data.titles) != len(input_data.posts):
+        return {"error": "Titles and posts must have the same length"}
+
+    # Combine title and post for each item in the batch
+    texts = [f"{title} {post}" for title, post in zip(input_data.titles, input_data.posts)]
+
+    # Tokenize the combined texts
+    inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True, max_length=256)
+
+    with torch.no_grad():
+        # Perform inference on the batch
+        logits = model(**inputs).logits
+        probs = torch.softmax(logits, dim=1)
+        preds = torch.argmax(probs, dim=1)
+
+    # Prepare the results
+    results = []
+    for i, text in enumerate(texts):
+        label = label_mapping[preds[i].item()]
+        confidence = torch.max(probs[i]).item()
+        results.append({
+            "text": text,
+            "label": label,
+            "confidence": round(confidence, 4)
+        })
+
+    return {"results": results}
 
 # --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
 @app.post("/api/related")
@@ -453,4 +511,4 @@ if __name__ == "__main__":
     print("neutral postsreturns related posts: 2 neutral + 1 of each leaning post")
     print("=" * 50 + "\n")
 
-    uvicorn.run("reco:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("reco:app", host="0.0.0.0", port=8000, reload=True)
