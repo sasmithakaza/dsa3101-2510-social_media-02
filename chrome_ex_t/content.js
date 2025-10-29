@@ -543,7 +543,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 // - on an opened post, "Related Posts" button will open up a panel that shows posts of opposing & neutral bias
 // ==========================================================
 
-const RELATED_API = "http://127.0.0.1:8001/api/related";
+const RELATED_API = "http://127.0.0.1:8000/api/related";
 
 let cachedRelatedPosts = null;     // panel data for current page
 let lastRelatedForUrl = null;      // to prevent post views being logged multiple times
