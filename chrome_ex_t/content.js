@@ -19,7 +19,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   function createToggleButton() {
     if (document.getElementById('bias-detector-toggle')) return;                            // Check if button already exists
   
-    const toggleContainer = document.createElement('div');
+    const toggleContainer = document.createElement('div');a
     toggleContainer.id = 'bias-detector-toggle';
     toggleContainer.innerHTML = `
       <div class="toggle-wrapper">
@@ -169,33 +169,46 @@ if (!window.location.hostname.includes('reddit.com')) {
   //   return { score: biasScore, types: detectedTypes };
   // }
 
-    const API_URL = "http://127.0.0.1:8000/classify"
+    const SINGLE_API_URL = "http://127.0.0.1:8000/classify"
+    const BATCH_API_URL = "http://127.0.0.1:8000/classify_batch"
 
-    async function analyzeBias(textContent) {
-    try {                                                                     //want to see if we can even call the backend
-       const response = await fetch(API_URL, {
-       method: "POST",
-       headers: {"Content-Type": "application/json"}, 
-       body: JSON.stringify({text: textContent})
-       });
+    async function analyzeBias(textContent, API_URL) {
+    try {
+        // For batch endpoint, send as array; for single, send as object
+        const requestBody = API_URL.includes('batch') 
+            ? JSON.stringify({ texts: [textContent] })  // Wrap in array for batch
+            : JSON.stringify({ text: textContent });     // Single object for single classify
 
-       if (!response.ok) {
-         throw new Error(`Backend returned status: ${response.status}`)
-         }
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"}, 
+            body: requestBody
+        });
 
-       const biasLabel = await response.json()
-       console.log("Backend response:", biasLabel)
-       return biasLabel
+        if (!response.ok) {
+            throw new Error(`Backend returned status: ${response.status}`);
+        }
 
-       } catch (err){
-          if (err.message === "Failed to fetch") {
-            console.error("Cannot call back end at all, make sure labelling.py is running")
-          } else {
-            console.error("Backend error: ", err)
-          }
-         return null
-       } 
-   }
+        const result = await response.json();
+        
+        // Handle different response formats
+        if (API_URL.includes('batch')) {
+            // Batch returns { results: [{ label, confidence }] }
+            return result.results[0];  // Return first result since we sent one text
+        } else {
+            // Single returns { label, confidence }
+            return result;
+        }
+
+    } catch (err) {
+        if (err.message === "Failed to fetch") {
+            console.error("Cannot call backend at all, make sure combined_api.py is running");
+        } else {
+            console.error("Backend error: ", err);
+        }
+        return null;
+    }
+}
   
   // function addBiasIndicator(element, biasData) {
   //   // Check if indicator already exists
@@ -361,7 +374,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       
       
       //analyse text and insert label   
-      const biasData = await analyzeBias(fullText);
+      const biasData = await analyzeBias(fullText, SINGLE_API_URL);
       if (biasData && biasData.label) {
         addBiasIndicator(openedPost, biasData);
         console.log('Bias indicator added to opened post.');
@@ -393,7 +406,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       const textContent = `${full.title}\n${full.selftext}`.trim();
       if (textContent.length > 20) {
-        const biasData = await analyzeBias(textContent);
+        const biasData = await analyzeBias(textContent, BATCH_API_URL);
         if (biasData && biasData.label) {
           addBiasIndicator(unit, biasData)
         };
@@ -414,7 +427,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 
       if (textContent.length > 20) {
        
-        const biasData = await analyzeBias(textContent);
+        const biasData = await analyzeBias(textContent, BATCH_API_URL);
         if (biasData && biasData.label) {
           addBiasIndicator(post, biasData);
         }
@@ -438,7 +451,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       const textContent = `${full.title}\n${full.selftext}`.trim();
 
       if (textContent.length > 20) {
-        const biasData = await analyzeBias(textContent);
+        const biasData = await analyzeBias(textContent, BATCH_API_URL);
         if (biasData && biasData.label) {
           addBiasIndicator(post, biasData);
           console.log('Bias indicator added to SEARCH RESULT post:', t3id);
