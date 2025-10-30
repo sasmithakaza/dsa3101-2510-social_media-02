@@ -6,8 +6,5 @@ torch
 pandas
 python-dotenv
 praw
-os
 uvicorn
 keybert
-collections
-typing
