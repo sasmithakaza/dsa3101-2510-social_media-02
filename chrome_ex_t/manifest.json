@@ -35,5 +35,13 @@
     "16": "images/extension_logo.png",
     "48": "images/main_logo.png",
     "128": "images/Bias_Detector.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sounds/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

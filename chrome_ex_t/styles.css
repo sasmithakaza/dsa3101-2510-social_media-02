@@ -110,6 +110,136 @@
   .toggle-switch input:checked + .toggle-slider:before {
     transform: translateX(26px);
   }
+  
+  /* Threshold Modal */
+  
+  /* Force overlay to be topmost and block all clicks underneath */
+  /* === Force overlay to be above all UI === */
+  .overlay-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    z-index: 999999999 !important;  /* highest possible */
+    pointer-events: all !important; /* capture all clicks */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Disable related button/panel while overlay is open */
+  body.no-interactions #related-posts-btn,
+  body.no-interactions #related-posts-panel {
+    pointer-events: none !important;
+    visibility: hidden !important;   /* completely hides them */
+    opacity: 0 !important;
+  }
+
+  /* Popup box */
+  .popup-content {
+    background-color: #FF5700;
+    border-radius: 20px;
+    padding: 24px 28px;
+    width: 600px;
+    max-width: 90%;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    font-family: sans-serif;
+    color: white;
+    line-height: 1.6;
+    transform: scale(0.95);
+    transition: transform 0.25s ease;
+  }
+
+  .popup-content h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    text-align: left; 
+  }
+
+  /* Post list */
+  .popup-posts {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Individual post row */
+  .post-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 12px;
+  }
+
+  /* Post link */
+  .post-link {
+    color: white;
+    text-decoration: underline;
+    font-size: 16px;
+    font-weight: 500;
+    word-wrap: break-word;
+    max-width: 80%;
+  }
+
+  /* Label badges */
+  .label {
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    min-width: 65px;
+    text-align: center;
+  }
+
+  .label.left {
+    background-color: #2F66B2;
+  }
+
+  .label.right {
+    background-color: #e80c25;
+  }
+
+  .label.neutral {
+    background-color: #696969;
+  }
+  
+  .popup-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  .ok-button {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 60px;
+    font-family: sans-serif;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .ok-button:hover {
+    background-color: rgba(0, 0, 0, 0.35);
+  }
 
 
 
@@ -141,6 +271,7 @@
   line-height: 1;                /* ensures text itself is centered */
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
   box-shadow:  0 2px 12px rgba(0, 0, 0, 0.15); 
+  z-index: 9999
 }
 
 .related-btn:hover {
@@ -162,6 +293,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 2147483639
 }
 
 .related-panel.show {
