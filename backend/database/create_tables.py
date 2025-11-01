@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 # -----------------------------------------------------
 # STEP 1: Read environment variables
 # -----------------------------------------------------
-db_host = os.getenv("DB_HOST", "database")
+db_host = os.getenv("DB_HOST", "db")
 db_user = os.getenv("DB_USER", "kevin")
 db_password = os.getenv("DB_PASSWORD", "kevin123")
 db_name = os.getenv("DB_NAME", "socialmedia")

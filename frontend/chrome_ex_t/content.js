@@ -117,7 +117,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         document.body.appendChild(btnCon)
         const button = btnCon.querySelector('button')
         button.addEventListener('click',() => {
-          window.open(`http://127.0.0.1:${availPort}`, "_blank");
+          window.open(`http://127.0.0.0.0:${availPort}`, "_blank");
         });
       })
   }
