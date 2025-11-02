@@ -158,7 +158,7 @@ kw_model = KeyBERT()
 
 # --- USER BIAS TRACKER ---
 user_bias_data = defaultdict(lambda: {"left": 0, "right": 0})
-BIAS_THRESHOLD = 20
+BIAS_THRESHOLD = 5
 
 # --- REDDIT API ---
 client_id = os.getenv("REDDIT_CLIENT_ID")
