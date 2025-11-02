@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import mysql.connector
-from mysql.connector import Error
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,28 +17,39 @@ st.set_page_config(
     layout="wide"
 )
 
-#Connecting dashboard to database
+# Global variable for time range
+days_back = 30
+
+# Helper function to convert post count to time display
+def count_to_time_display(post_count):
+    """Convert post count to time display (assumes 2 posts = 1 minute)"""
+    total_minutes = post_count * 2  # Adjust this ratio as needed
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours}h {minutes}m"
+
+# Connecting dashboard to database
 @st.cache_resource(ttl=300)
 def get_db_connection():
+    """Create SQLAlchemy engine for pandas compatibility"""
     try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'db'),
-            database=os.getenv('DB_NAME', 'mydatabase'),
-            user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', 'root'),
-            port=os.getenv('DB_PORT', '3306')
-        )
-        return connection
-    except Error as e:
+        engine_str = f"mysql+pymysql://{os.getenv('DB_USER', 'root')}:{os.getenv('DB_PASSWORD', 'root')}@{os.getenv('DB_HOST', 'database')}:{os.getenv('DB_PORT', '3306')}/{os.getenv('DB_NAME', 'mydatabase')}"
+        engine = create_engine(engine_str)
+        
+        # Test connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        return engine
+    except Exception as e:
         st.error(f"Database connection failed: {e}")
         return None
-    
 
-#Political spectrum data
+# Political spectrum data
 @st.cache_data(ttl=60)
 def get_political_spectrum_data():
-    connection = get_db_connection()
-    if connection is None:
+    engine = get_db_connection()
+    if engine is None:
         return None
     
     try:
@@ -53,44 +64,37 @@ def get_political_spectrum_data():
         ORDER BY post_count DESC
         """
         
-        df = pd.read_sql(query, connection, params=[days_back])
-        
+        df = pd.read_sql(query, engine, params=(days_back,))
         return df
-    except Error as e:
+    except Exception as e:
         st.error(f"Error fetching political data: {e}")
         return None
-    finally:
-        if connection.is_connected():
-            connection.close()
 
-#top subreddit data           
+# Top subreddit data           
 @st.cache_data(ttl=60)
 def get_top_categories_data():
-    connection = get_db_connection()
-    if connection is None:
+    engine = get_db_connection()
+    if engine is None:
         return None
     
     try:
         query = """
         SELECT 
-            bias_label,
+            subreddit,
             COUNT(*) as post_count,
             AVG(LENGTH(title)) as avg_title_length
         FROM user_activity 
         WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        GROUP BY bias_label
+        GROUP BY subreddit
         ORDER BY post_count DESC
         LIMIT 10
         """
         
-        df = pd.read_sql(query, connection)
+        df = pd.read_sql(query, engine)
         return df
-    except Error as e:
+    except Exception as e:
         st.error(f"Error fetching categories data: {e}")
         return None
-    finally:
-        if connection.is_connected():
-            connection.close()
 
 # Static screentime data
 def get_static_screentime_data():
@@ -100,8 +104,6 @@ def get_static_screentime_data():
         'time_display': ['4h 13m', '6h 30m'],
         'total_display': '10h 43m'
     }
-    
-
 
 # Clean CSS with minimal spacing
 st.markdown("""
@@ -286,7 +288,7 @@ with col2:
     
     if categories_data is not None and not categories_data.empty:
         # Use database data
-        y_data = [f"{row['bias_label'].title()}" for _, row in categories_data.iterrows()]
+        y_data = [f"{row['subreddit'].title()}" for _, row in categories_data.iterrows()]
         x_data = categories_data['post_count'].tolist()
     else:
         # Fallback data

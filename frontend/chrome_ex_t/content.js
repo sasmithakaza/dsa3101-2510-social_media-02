@@ -117,7 +117,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         document.body.appendChild(btnCon)
         const button = btnCon.querySelector('button')
         button.addEventListener('click',() => {
-          window.open(`http://127.0.0.0.0:${availPort}`, "_blank");
+          window.open(`http://127.0.0.1:${availPort}`, "_blank");
         });
       })
   }
@@ -389,7 +389,9 @@ async function scanPosts() {
         seenRecommendPosts.add(postId);
 
         const user_id = (await getRedditUsername()) || "anonymous";
-        await checkBiasThreshold(user_id, title, body, label);
+        // await checkBiasThreshold(user_id, title, body, label); (2/11 removed)
+        const subreddit = getOpenedPostSubredditName() || "unknown";
+        await checkBiasThreshold(user_id, title, body, label, subreddit);
       }
     } else {
       console.log('No bias detected in opened post.');
@@ -930,14 +932,15 @@ setInterval(() => {
 const RECOMMEND_API = "http://127.0.0.1:8000/api/recommend";
 
 // --- Ask backend if bias threshold reached ---
-async function checkBiasThreshold(user_id, title, post, label) {
+// 2/11 modified
+async function checkBiasThreshold(user_id, title, post, label, subreddit = "") {
   if (!title?.trim() && !post?.trim()) {
     console.warn("[Modal] Skipped /api/recommend — missing title and post.");
     return;
   }
 
   try {
-    const payload = { user_id, title, post, label };
+    const payload = { user_id, title, post, label, subreddit};
     console.log("[Modal] Sending to backend:", payload);
 
     const res = await fetch(RECOMMEND_API, {
