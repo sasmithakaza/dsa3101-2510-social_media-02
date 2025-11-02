@@ -212,6 +212,30 @@ def classifier(text):
     else:
         return "neutral"
 
+def classify_batch_posts(posts):
+    """Batch classify Reddit posts for faster inference"""
+    if not posts:
+        return []
+
+    texts = [f"{p.title} {getattr(p, 'selftext', '')}" for p in posts]
+
+    inputs = tokenizer(
+        texts,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=256
+    )
+
+    with torch.no_grad():
+        logits = model(**inputs).logits
+        preds = torch.argmax(logits, dim=1)
+
+    for i, p in enumerate(posts):
+        setattr(p, "leaning", label_mapping[preds[i].item()])
+
+    return posts
+
 @app.post("/classify")
 def classify_single(input_data: TextInput):
     """Classify single text for bias"""
@@ -270,22 +294,24 @@ def search_and_classify(query, limit=25):
         return []
 
     try:
-        results = reddit.subreddit("all").search(query, sort="top", limit=limit)
-        posts = []
+        posts = list(reddit.subreddit("all").search(query, sort="top", limit=limit))
 
-        for post in results:
-            text = f"{post.title} {post.selftext}"
-            leaning = classifier(text)
-            posts.append({
-                "title": post.title,
-                "leaning": leaning,
-                "url": f"https://www.reddit.com{post.permalink}",
-                "upvotes": post.score,
-                "comments": post.num_comments,
-                "subreddit": post.subreddit.display_name
-            })
+        # allows vectorized inference
+        classified_posts = classify_batch_posts(posts)
 
-        return posts
+        return [
+            {
+                "title": p.title,
+                "leaning": p.leaning,
+                "url": f"https://www.reddit.com{p.permalink}",
+                "upvotes": p.score,
+                "comments": p.num_comments,
+                "subreddit": p.subreddit.display_name
+            }
+            for p in classified_posts
+        ]
+
+
     except Exception as e:
         print(f"Search error: {e}")
         return []

@@ -20,13 +20,14 @@ st.set_page_config(
 # Global variable for time range
 days_back = 30
 
-# Helper function to convert post count to time display
+
 def count_to_time_display(post_count):
     """Convert post count to time display (assumes 2 posts = 1 minute)"""
-    total_minutes = post_count * 2  # Adjust this ratio as needed
+    total_minutes = post_count * 2  
     hours = total_minutes // 60
     minutes = total_minutes % 60
     return f"{hours}h {minutes}m"
+
 
 # Connecting dashboard to database
 @st.cache_resource(ttl=300)
@@ -87,7 +88,7 @@ def get_top_categories_data():
         WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         GROUP BY subreddit
         ORDER BY post_count DESC
-        LIMIT 10
+        LIMIT 5
         """
         
         df = pd.read_sql(query, engine)
@@ -105,80 +106,201 @@ def get_static_screentime_data():
         'total_display': '10h 43m'
     }
 
-# Clean CSS with minimal spacing
+# Enhanced CSS for Reddit integration - COMPLETELY REMOVES TOP WHITE BAR
 st.markdown("""
 <style>
-    .header-container {
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }
+    
+    /* COMPLETELY REMOVE ALL STREAMLIT HEADERS AND TOP SPACING */
+    .main {
+        background-color: #f8fafc !important;
+    }
+    .stApp {
+        background-color: #f8fafc !important;
+    }
+    
+    /* REMOVE ALL DEFAULT STREAMLIT SPACING AND HEADERS */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* HIDE ALL STREAMLIT HEADERS AND FOOTERS */
+    header {
+        display: none !important;
+    }
+    footer {
+        display: none !important;
+    }
+    .stApp > header {
+        display: none !important;
+    }
+    
+    /* HIDE STREAMLIT MENU AND HAMBURGER */
+    #MainMenu {
+        visibility: hidden !important;
+    }
+    .stDeployButton {
+        display: none !important;
+    }
+    
+    /* Reddit-style top bar */
+    .reddit-topbar {
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .reddit-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .reddit-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: #ff4500;
+    }
+    
+    .reddit-logo svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .echo-break-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #111827;
+        display: flex;
+        align-items: center;
+    }
+    
+    .reddit-icons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        color: #6b7280;
+    }
+    
+    .reddit-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #ff4500;
+        color: white;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        font-weight: 600;
+        font-size: 0.875rem;
     }
-    .header-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        object-fit: contain;
-        background: white;
-        padding: 8px;
-    }
+    
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #ff4500;
-        font-family: 'Arial', sans-serif;
-        margin: 0;
-    }
-    .section-header {
-        font-size: 1.3rem;
-        font-weight: bold;
-        color: #1a1a1b;
-        margin-bottom: 0.5rem;
-        font-family: 'Arial', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #111827;
         text-align: center;
+        margin-bottom: 2rem;
+        letter-spacing: -0.025em;
+        margin-top: 1rem;
     }
     
-    /* Clean white background */
-    .main {
-        background-color: white !important;
-    }
-    .stApp {
-        background-color: white !important;
+
+    .card-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 1rem;
+        text-align: center;
+        letter-spacing: -0.01em;
+        padding: 0.5rem 0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
     }
     
-    .stPlotlyChart {
-        border-radius: 0px;
-    }
-    
-    /* Reduce space between columns */
+    /* Custom column spacing */
     [data-testid="column"] {
-        gap: 0rem;
+        gap: 1.5rem;
+    }
+    
+    /* Chart container styling */
+    .stPlotlyChart {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    /* Remove any residual margins */
+    .stApp > div {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Add spacing between sections */
+    .spaced-section {
+        margin-top: 2rem;
+    }
+    
+    /* Chart wrapper for better styling */
+    .chart-wrapper {
+        background: white;
+        border-radius: 12px;
+        padding: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown(
-    '''
-    <div class="header-container">
-        <div><img class="header-icon" src="https://www.redditstatic.com/shreddit/assets/favicon/64x64.png"></div>
-        <div class="main-header">DASHBOARD ANALYTICS</div>
-        <div><img class="header-icon" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"></div>
+# Reddit Header
+st.markdown("""
+<div class="reddit-topbar">
+    <div class="reddit-left">
+        <div class="reddit-logo">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0A12 12 0 1 0 12 24 12 12 0 1 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701z"/>
+            </svg>
+            reddit
+        </div>
     </div>
-    ''', 
-    unsafe_allow_html=True
-)
+    <div class="echo-break-title">
+        Echo Break
+    </div>
+    <div class="reddit-icons">
+        <span>💬</span>
+        <span>➕</span>
+        <span>🔔</span>
+        <div class="reddit-avatar">U</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# Create two main columns with minimal gap
-col1, col2 = st.columns([1, 1], gap="small")
+st.markdown('<div class="spaced-section"></div>', unsafe_allow_html=True)
+
+# Create 3 columns for the cards
+col1, col2, col3 = st.columns(3, gap="medium")
 
 with col1:
+    # Political Spectrum Card
+    st.markdown('<div class="card-header">Political Spectrum Distribution</div>', unsafe_allow_html=True)
+    
     # Get live data from user_activity table
     political_data = get_political_spectrum_data()
     
     if political_data is not None and not political_data.empty:
-        # Process database data for the chart
         spectrum = []
         post_counts = []
         time_displays = []
@@ -188,14 +310,11 @@ with col1:
             post_counts.append(row['post_count'])
             time_displays.append(count_to_time_display(row['post_count']))
         
-        # If no data, use fallback
         if not spectrum:
             spectrum = ['Left', 'Right', 'Neutral']
             post_counts = [42, 65, 20]  
             time_displays = ['1h 24m', '2h 10m', '0h 40m']
-            
     else:
-        # Fallback data if database is unavailable
         spectrum = ['Left', 'Right', 'Neutral']
         post_counts = [42, 65, 20]  
         time_displays = ['1h 24m', '2h 10m', '0h 40m']
@@ -209,97 +328,93 @@ with col1:
         hovertemplate='<b>%{label}</b><br>Posts: %{value}<br>%{customdata}<extra></extra>',
         customdata=time_displays,
         marker=dict(
-            colors=['#ff4500', '#0079d3', '#46d160'],
+            colors=['#e80c25', '#2F66B2', '#696969'],
             line=dict(color='white', width=2)
-        )
+        ),
+        hole=0.4
     )])
     
     fig_spectrum.update_layout(
         height=300,
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.2,
-            xanchor="center",
-            x=0.5
-        ),
-        margin=dict(l=0, r=0, t=0, b=0),
-        font=dict(family='Arial', size=12),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
+        showlegend=False,
+        margin=dict(l=20, r=20, t=20, b=20),
+        font=dict(family='Inter, sans-serif', size=11),
+        paper_bgcolor='white',
+        plot_bgcolor='white'
     )
     
     st.plotly_chart(fig_spectrum, use_container_width=True, key="political_spectrum_pie")
+    st.markdown('<div class="card-header"></div>', unsafe_allow_html=True)
 
-    # Screentime Analysis Section
-    st.markdown('<div class="section-header">⏰ Screentime Analysis</div>', unsafe_allow_html=True)
+with col2:
+    # Screentime Analysis Card
+    st.markdown('<div class="card-header">Screentime Analysis</div>', unsafe_allow_html=True)
     
     # Mode Breakdown Donut Chart
-    modes = ['Skeptical Mode', 'Vibes Mode']
+    modes = ['Skeptical', 'Vibes']
     hours = [4.22, 6.5]
-    time_display = ['4h 13m', '6h 30m']
+    time_display = ['4h 13m', '6h 30m']  # Formatted display
     
     fig_modes = go.Figure(data=[go.Pie(
         labels=modes,
         values=hours,
-        textinfo='label+text',  
-        text=time_display, 
-        textposition='outside',
-        hovertemplate='<b>%{label}</b><br>%{customdata}<extra></extra>',
+        textinfo='label+value',  # Show label + actual hours value
+        texttemplate='%{label}<br>%{value:.1f}h',  # Custom format: label + hours
+        textposition='inside',
+        hovertemplate='<b>%{label}</b><br>Time: %{customdata}<extra></extra>',
         customdata=time_display,
-        marker=dict(colors=['#ff4500', '#0079d3'], line=dict(color='white', width=2)),
-        hole=0.7, 
-        textfont=dict(size=12)
+        marker=dict(
+            colors=['#4CAF50', '#dc3545'], 
+            line=dict(color='white', width=2)
+        ),
+        hole=0.5,
+        textfont=dict(size=11, family='Inter')
     )])
     
     fig_modes.update_layout(
         height=300,
         showlegend=False,
-        margin=dict(l=0, r=0, t=0, b=0),
-        font=dict(family='Arial', size=12),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=20, b=20),
+        font=dict(family='Inter, sans-serif', size=11),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
         annotations=[
             dict(
                 text='10h 43m',
                 x=0.5, y=0.5,
-                font=dict(size=24, color='#ff4500', family='Arial', weight='bold'),
+                font=dict(size=20, color='#111827', family='Inter', weight=700),
                 showarrow=False
             ),
             dict(
                 text='Total Screentime',
                 x=0.5, y=0.42,
-                font=dict(size=14, color='#7c7c7c', family='Arial'),
+                font=dict(size=12, color='#6b7280', family='Inter', weight=500),
                 showarrow=False
             )
         ]
     )
     
     st.plotly_chart(fig_modes, use_container_width=True, key="mode_breakdown_pie")
+    st.markdown('<div class="card-header"></div>', unsafe_allow_html=True)
 
-with col2:
-    # Top Subreddits Bar Chart section 
-    st.markdown('<div class="section-header">🏆 Top Subreddits Engagement</div>', unsafe_allow_html=True)
-    st.markdown('*Posts and engagement across your most visited communities*')
+with col3:
+    # Top Subreddits Card
+    st.markdown('<div class="card-header">Top Subreddits Engagement</div>', unsafe_allow_html=True)
     
     # Get categories data from database
     categories_data = get_top_categories_data()
     
     if categories_data is not None and not categories_data.empty:
-        # Use database data
         y_data = [f"{row['subreddit'].title()}" for _, row in categories_data.iterrows()]
         x_data = categories_data['post_count'].tolist()
     else:
-        # Fallback data
         categories_data = pd.DataFrame({
-            'bias_label': ['/politics', '/USpolitics', 'Askpolitics'],
-            'post_count': [42, 65, 20]
+            'subreddit': ['Politics', 'US Politics', 'World News', 'Conservative', 'Libertarian'],
+            'post_count': [150, 120, 80, 65, 45]
         })
-        y_data = [f"{label}" for label in categories_data['bias_label']]
+        y_data = [f"{label}" for label in categories_data['subreddit']]
         x_data = categories_data['post_count'].tolist()
 
-    
     # Horizontal bar chart
     fig_categories = go.Figure()
     
@@ -308,23 +423,23 @@ with col2:
         x=x_data,
         orientation='h',
         name='Posts',
-        marker_color='#ff4500',
+        marker_color='#FF4500',
         text=x_data,
         textposition='auto',
         hovertemplate='<b>%{y}</b><br>Posts: %{x:,}<extra></extra>'
     ))
     
     fig_categories.update_layout(
-        height=400,
+        height=300,
         showlegend=False,
-        margin=dict(l=0, r=0, t=0, b=0),
-        font=dict(family='Arial', size=12),
+        margin=dict(l=20, r=20, t=20, b=20),
+        font=dict(family='Inter, sans-serif', size=11),
         xaxis_title="Number of Posts",
         yaxis_title="",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        plot_bgcolor='white',
         xaxis=dict(
-            gridcolor='#f0f0f0',
+            gridcolor='#f1f5f9',
             showgrid=True
         ),
         yaxis=dict(
@@ -333,3 +448,4 @@ with col2:
     )
     
     st.plotly_chart(fig_categories, use_container_width=True, key="categories_bar")
+    st.markdown('<div class="card-header"></div>', unsafe_allow_html=True)

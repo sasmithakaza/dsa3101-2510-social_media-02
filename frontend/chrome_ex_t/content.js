@@ -2,12 +2,12 @@
 
 // ensure we're on Reddit
 if (!window.location.hostname.includes('reddit.com')) {
-    console.log('Not a Reddit page - extension inactive');
     throw new Error('This extension only works on Reddit pages');
   }
   
   // Global state
   let isEnabled = true;
+  let initialScanDone = false;
 
   function isPostCommentsPage(href = location.href) {
   // Matches: /r/<sub>/comments/<postId>/...
@@ -33,7 +33,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       </div>
     `;
   
-    // Add to page
+    // Add toggle to page
     document.body.appendChild(toggleContainer);
   
     // Add event listener
@@ -42,7 +42,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       isEnabled = e.target.checked;
       chrome.storage.sync.set({ biasDetectionEnabled: isEnabled });
       
-      if (isEnabled) { //if toggle on,
+      if (isEnabled) { //if toggle is switched to skeptical mode,
         // Re-enable bias scanning
         processedT3.clear();
         scanPosts();
@@ -90,7 +90,6 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     findAvailPort(8501).then(availPort => {
         if (!availPort) {
-          console.error('No free ports between port 8501-8510 for dashboard');
           return;
           }
 
@@ -147,48 +146,17 @@ if (!window.location.hostname.includes('reddit.com')) {
     }, 100);
   });
  
-  //NEED BACKEND
-  // Bias indicators - you can expand this
-  // const biasKeywords = {
-  //   emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
-  //   loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
-  //   absolute: ['all', 'every', 'none', 'completely', 'totally', 'most']
-    // neutral: ['reportedly', 'allegedly','suggests', 'according', 'research', 'evidence', 'data', 'study', 'research', 'seems', 'claims'],
-    // rightWing: ['freedom', 'patriot', 'traditional', 'tax cuts', 'free market', 'border', 'immigrants', 'woke', 'liberal'],
-    // leftWing: ['progressive', 'inclusive', 'equality', 'diversity', 'equal', 'climate', 'rights', 'public', 'renewable']
-  // };
-  
-  
-
-  //NEED BACKEND: replace this
-  // function analyzeBias(text) {
-  //   const lowerText = text.toLowerCase();
-  //   let biasScore = 0;
-  //   let detectedTypes = [];
-  
-  //   for (const [type, keywords] of Object.entries(biasKeywords)) {
-  //     for (const keyword of keywords) {
-  //       if (lowerText.includes(keyword)) {
-  //         biasScore++;
-  //         if (!detectedTypes.includes(type)) {
-  //           detectedTypes.push(type);
-  //         }
-  //       }
-  //     }
-  //   }
-  
-  //   return { score: biasScore, types: detectedTypes };
-  // }
+ 
 
     const SINGLE_API_URL = "http://127.0.0.1:8000/classify"
     const BATCH_API_URL = "http://127.0.0.1:8000/classify_batch"
 
     async function analyzeBias(textContent, API_URL) {
     try {
-        // For batch endpoint, send as array; for single, send as object
+        // For classify_batch endpoint, send as array; for single, send as object
         const requestBody = API_URL.includes('batch') 
-            ? JSON.stringify({ texts: [textContent] })  // Wrap in array for batch
-            : JSON.stringify({ text: textContent });     // Single object for single classify
+            ? JSON.stringify({ texts: [textContent] })  // Wrap in array for /classify_batch
+            : JSON.stringify({ text: textContent });    // Single object for /classify
 
         const response = await fetch(API_URL, {
             method: "POST",
@@ -213,34 +181,11 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     } catch (err) {
         if (err.message === "Failed to fetch") {
-            console.error("Cannot call backend at all, make sure combined_api.py is running");
         } else {
-            console.error("Backend error: ", err);
         }
         return null;
     }
 }
-  
-  // function addBiasIndicator(element, biasData) {
-  //   // Check if indicator already exists
-  //   if (element.querySelector('.bias-indicator')) return;
-  
-  //   const indicator = document.createElement('div');
-  //   indicator.className = 'bias-indicator';
-    
-  //   let level = 'low';
-  //   if (biasData.score > 5) level = 'high';
-  //   else if (biasData.score > 2) level = 'medium';
-  
-  //   indicator.classList.add(`bias-${level}`);
-  //   indicator.innerHTML = `
-  //     <span class="bias-badge">⚠️ Bias Level: ${level.toUpperCase()}</span>
-  //     <span class="bias-details">${biasData.types.join(', ')}</span>
-  //   `;
-  
-  //   element.style.position = 'relative';
-  //   element.insertBefore(indicator, element.firstChild);
-  // }
 
   function addBiasIndicator(element, biasData) {
     if (element.querySelector('.bias-indicator')) return;
@@ -273,7 +218,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   }
 
 
-  // HELPER FUNCTIONS  ===
+  // HELPER FUNCTIONS  
 
   // keep track of posts we already processed to avoid duplicate work
   const processedT3 = new Set();
@@ -298,7 +243,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     return null;
   }
 
-  //extract t3 id from SDUI (title-only) search tiles FOR SPECIAL CASE OF SEARCHING ONE WORD!!!! (T3 id is the unique identifier of every post)
+  //extract t3 id from SDUI (title-only) search tiles (FOR SPECIAL CASE OF SEARCHING ONE WORD, cannot retrive t3 id same way as home feed) 
   function getT3FromSduiUnit(unit) {
     const a = unit.querySelector('a[data-testid="post-title"][href*="/comments/"]');
     if (!a) return null;
@@ -329,8 +274,13 @@ if (!window.location.hostname.includes('reddit.com')) {
     };
   }
 
+
+
+
+// #####################################################################################################################################
 // ===== Detects what kind of page user is on (opened post, home feed, single word search results feed or >1 word search results feed)
 // ====== and adds bias labels accordingly
+//######################################################################################################################################
 
 const seenRecommendPosts = new Set(); // Prevent duplicate recommend calls
 
@@ -338,20 +288,17 @@ async function scanPosts() {
   if (!isEnabled) return;
 
   const isOpenedPostPage = location.pathname.includes('/comments/');
-
   // ============================
-  // 🧩 OPENED POST PAGE
+  //      OPENED POST PAGE
   // ============================
   if (isOpenedPostPage) {
     const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
     if (!openedPost) {
-      console.log('Opened post not found yet, waiting...');
       return;
     }
 
     // Stop if already labeled (bias-indicator exists)
     if (openedPost.querySelector('.bias-indicator')) {
-      console.log('Bias label already present — stopping further scans.');
       return;
     }
 
@@ -367,8 +314,9 @@ async function scanPosts() {
     const body = bodyEl?.innerText?.trim() || '';
 
     const fullText = `${title}\n${body}`.trim();
+
+    //if post too short don't generate bias label
     if (fullText.length < 20) {
-      console.log('Post content too short — skipping.');
       return;
     }
 
@@ -376,14 +324,12 @@ async function scanPosts() {
     const biasData = await analyzeBias(fullText, SINGLE_API_URL);
     if (biasData && biasData.label) {
       addBiasIndicator(openedPost, biasData);
-      console.log('Bias indicator added to opened post.');
 
       // --- 🧩 Call recommend API (only once per post) ---
       const label = biasData.label.toLowerCase();
       if (["left", "right"].includes(label)) {
         const postId = openedPost.id || title.slice(0, 100);
         if (seenRecommendPosts.has(postId)) {
-          console.log("[Recommend] Skipping duplicate recommend for post:", postId);
           return;
         }
         seenRecommendPosts.add(postId);
@@ -394,22 +340,28 @@ async function scanPosts() {
         await checkBiasThreshold(user_id, title, body, label, subreddit);
       }
     } else {
-      console.log('No bias detected in opened post.');
     }
 
     return; // Stop feed scanning when on a single post page
   }
 
   // ============================
-  // 🧩 FEED / SEARCH PAGES
+  // FEED / SEARCH RESULTS PAGES
   // ============================
 
   // --- Regular feed posts ---
-  const posts = Array.from(document.querySelectorAll(
+  let posts = Array.from(document.querySelectorAll(
     'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
-  )).slice(0, 15);
+  ));
 
-  // --- Handle SDUI (single-word search) ---
+  // #### Handle SDUI (single-word search e.g."Trump") ####
+  
+  // limit to 15 posts on the very first scan for speed
+  if (!initialScanDone) {
+    posts = posts.slice(0, 15);
+    initialScanDone = true;
+  }
+
   const sduiUnits = document.querySelectorAll('[data-testid="sdui-post-unit"]');
   for (const unit of sduiUnits) {
     const t3id = getT3FromSduiUnit(unit);
@@ -428,7 +380,7 @@ async function scanPosts() {
     }
   }
 
-  // --- Home feed posts ---
+  // #### Home Feed Posts ####
   for (const post of posts) {
     const t3id = getPostId(post);
     if (!t3id || processedT3.has(t3id)) continue;
@@ -446,7 +398,7 @@ async function scanPosts() {
     }
   }
 
-  // --- Multi-word search results ---
+  // ### Multi-word search results (e.g. "Donald Trump") ###
   const searchResults = Array.from(document.querySelectorAll(
     '[data-testid="search-post-with-content-preview"]'
   )).slice(0, 15);
@@ -464,36 +416,12 @@ async function scanPosts() {
       const biasData = await analyzeBias(textContent, BATCH_API_URL);
       if (biasData && biasData.label) {
         addBiasIndicator(post, biasData);
-        console.log('Bias indicator added to SEARCH RESULT post:', t3id);
       }
     }
   }
 }
 
-  // async function scanPosts() {
-  //   if (!isEnabled) return;
 
-  //   const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, shreddit-post');
-
-  //   for (const post of posts) {
-  //     const textContent = post.textContent || post.innerText;
-  //     if (!textContent) {
-  //       continue
-  //     }
-
-  //     try {
-  //       const biasData = await analyzeBias(textContent);
-  //       if (biasData && biasData.label) {
-  //         addBiasIndicator(post, biasData);
-  //         console.log("posts are labelled")
-  //       } else {
-  //         console.warn("Backend returned null or invalid data")
-  //       }
-  //     } catch (err) {
-  //       console.error("Error analysing post: ", err)
-  //     }
-  //   }
-  // }
   
   // function to remove all bias indicators
   function removeAllIndicators() {
@@ -559,15 +487,16 @@ async function scanPosts() {
 
 
 
-// ==========================================================
+// ====================================================================================================================
 //             "RELATED POSTS" BUTTON FEATURE
 // - on an opened post, "Related Posts" button will open up a panel that shows posts of opposing & neutral bias
-// ==========================================================
+// ====================================================================================================================
 
 const RELATED_API = "http://127.0.0.1:8000/api/related";
 
 let cachedRelatedPosts = null;     // panel data for current page
-let lastRelatedForUrl = null;      // to prevent post views being logged multiple times
+let lastRelatedForUrl = null;      // to prevent post views being logged into database multiple times
+let isFetchingRelated = false;
 
 function getOpenedPostTitleAndBody() {
   const openedPost = document.querySelector("shreddit-post, [data-testid='post-container'], [data-test-id='post-content']");
@@ -581,6 +510,7 @@ function getOpenedPostTitleAndBody() {
   return { title, body };
 }
 
+//calls on backend's /api/related endpoint to generate related posts
 async function fetchRelatedForOpenedPost() {
   if (lastRelatedForUrl === location.href) return cachedRelatedPosts;
 
@@ -589,9 +519,9 @@ async function fetchRelatedForOpenedPost() {
   const { title, body } = getOpenedPostTitleAndBody();
   const username  = (await getRedditUsername()) || "anonymous";
 
+  //checks for required fields: label, subreddit, at least 1 out of title and body
   if (!label || !subreddit || (!title && !body)) {
-    console.warn("[/related] Missing required fields", { label, subreddit, title, body });
-    return null;
+    return null; //if conditions not met, won't fetch related posts
   }
 
 
@@ -619,7 +549,6 @@ async function fetchRelatedForOpenedPost() {
     lastRelatedForUrl = location.href;
     return cachedRelatedPosts;
   } catch (e) {
-    console.error("[/related] fetch error", e);
     return null;
   }
 }
@@ -640,7 +569,7 @@ function addRelatedPostsButton() {
   const panel = document.createElement("div");
   panel.id = "related-posts-panel";
   panel.className = "related-panel";
-  panel.innerHTML = `<p class="loading">Loading related posts...</p>`;
+  panel.innerHTML = `<div class="loading">Loading related posts...</p>`;
 
   // insert the button and dropdown panel into the page
   document.body.appendChild(btn);
@@ -650,6 +579,12 @@ function addRelatedPostsButton() {
 
   //Adds the posts to the panel
   async function addPostsToPanel() {
+    if (isFetchingRelated) {  //still waiting for backend
+    panel.innerHTML = `<div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
+      <div class="related-panel__body"><div class="loading">Loading related posts...</div></div>`;
+    return;
+  }
+
   const posts = Array.isArray(cachedRelatedPosts) ? cachedRelatedPosts : [];
   if (!posts.length) {
     panel.innerHTML = `<div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
@@ -670,22 +605,20 @@ function addRelatedPostsButton() {
 
 
 
-//
+
 btn.addEventListener("mouseenter", async () => {
   await addPostsToPanel();
 
   const rect = btn.getBoundingClientRect();
 
-  // live geometry — data-driven, not hardcoded
+  
   const panelWidth = panel.offsetWidth;
   const viewportWidth = window.innerWidth;
 
-  // Align left edge of panel slightly left of button’s right edge,
-  // but clamp within viewport
-  let left = rect.right - panelWidth;  // 20px small visual gap
+  let left = rect.right - panelWidth; 
   left = Math.max(12, Math.min(left, viewportWidth - panelWidth - 12));
 
-  // Position panel below the button
+  // position panel below the button
   const top = rect.bottom + 8;
 
   panel.style.position = "fixed";
@@ -742,16 +675,14 @@ async function checkForBiasTaggedPost() {
 
   const hasBias = !!mainPost.querySelector(".bias-indicator");
 
-  // one place to collect and log everything
+  // one place to collect and log all post info
   const collect = async () => {
     if (lastRelatedForUrl === location.href && Array.isArray(cachedRelatedPosts)) {
-    console.log("[Related] using cached", cachedRelatedPosts.length, "items");
     return;
     }
     const username  = await getRedditUsername();
     const subreddit = getOpenedPostSubredditName();
     const label     = getBiasLabelForOpenedPost();
-    console.log("[Related] user:", username, "subreddit:", subreddit, "label:", label);
 
 
 
@@ -764,6 +695,8 @@ async function checkForBiasTaggedPost() {
 
     // fire request
     try {
+      isFetchingRelated = true;
+
       const res = await fetch(RELATED_API, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -787,24 +720,25 @@ async function checkForBiasTaggedPost() {
       cachedRelatedPosts = data?.related_posts || [];
       lastRelatedForUrl = location.href;
 
-      console.log(
-        "[Related] user:", username,
-        "subreddit:", subreddit,
-        "label:", label,
-        "items:", cachedRelatedPosts.length
-      );
+     
     } catch (e) {
-      console.error("[Related] fetch failed:", e);
       cachedRelatedPosts = [];
       lastRelatedForUrl = location.href;
+    } finally {
+      isFetchingRelated = false;
     }
   };
     
   if (hasBias) {
-    // if bias label already on screen, collect now
-    await collect();
-    // ensure the button exists so the hover can show related posts
     addRelatedPostsButton();
+    // if bias label on screen, show "Related Posts" button with "loading" on panel while waiting for endpoint to send posts
+    collect().then(() => {
+      // once backend responds, the cachedRelatedPosts is updated.
+      // hovering mouse on button again will show related posts in panel
+
+    }).catch(() => {});
+
+
     return;
   }
 
@@ -812,19 +746,23 @@ async function checkForBiasTaggedPost() {
   // if bias label appears later, collect info  
   const observer = new MutationObserver(async () => {
     if (mainPost.querySelector(".bias-indicator")) {
-      await collect();
       addRelatedPostsButton();
+      collect().then(() => {
+        // backend fills cachedRelatedPosts in background
+      }).catch(() => {});
+      
       observer.disconnect();
     }
   });
   observer.observe(mainPost, { childList: true, subtree: true });
 
 }
+//========================================================================================
 
-      
 
 
-/////////////////////////////////////////////////////////////////////////////
+
+
 
 
 
@@ -885,11 +823,6 @@ function getBiasLabelForOpenedPost() {
 }
 
 
-
-
-
-
-
 // Allow time for bias scan before deciding whether to show Related Posts button
 setTimeout(() => {
   if (isPostCommentsPage()) {
@@ -906,7 +839,6 @@ let lastUrl = location.href;
 setInterval(() => {
   if (location.href !== lastUrl) { 
     lastUrl = location.href;
-    console.log('URL changed, rescanning posts...');
 
     cachedUsername = null;
 
@@ -925,6 +857,15 @@ setInterval(() => {
   }
 }, 400); // how often to check for url changes
 
+
+
+
+
+
+
+
+
+
 // ==============================================
 // MODAL POPUP (Bias Threshold)
 // ==============================================
@@ -935,13 +876,11 @@ const RECOMMEND_API = "http://127.0.0.1:8000/api/recommend";
 // 2/11 modified
 async function checkBiasThreshold(user_id, title, post, label, subreddit = "") {
   if (!title?.trim() && !post?.trim()) {
-    console.warn("[Modal] Skipped /api/recommend — missing title and post.");
     return;
   }
 
   try {
     const payload = { user_id, title, post, label, subreddit};
-    console.log("[Modal] Sending to backend:", payload);
 
     const res = await fetch(RECOMMEND_API, {
       method: "POST",
@@ -950,7 +889,6 @@ async function checkBiasThreshold(user_id, title, post, label, subreddit = "") {
     });
 
     if (res.status === 204) {
-      console.log("[Modal] Bias threshold not reached yet.");
       return;
     }
 
@@ -958,13 +896,10 @@ async function checkBiasThreshold(user_id, title, post, label, subreddit = "") {
 
     const data = await res.json();
     if (data.bias_detected && data.recommendations?.length) {
-      console.log("[Modal] Bias threshold reached! Showing recommendations.");
       createOverlayPopup(data.recommendations);
     } else {
-      console.log("[Modal] No recommendations returned yet.");
     }
   } catch (err) {
-    console.error("[Modal] Backend error:", err);
   }
 }
 
@@ -977,7 +912,6 @@ function createOverlayPopup(recommendations = []) {
     const soundUrl = chrome?.runtime?.getURL?.("sounds/sound1.mp3");
     if (soundUrl) new Audio(soundUrl).play().catch(() => {});
   } catch (e) {
-    console.warn("[Modal] Sound skipped — extension context unavailable");
   }
 
   document.body.classList.add("no-interactions");
@@ -1021,3 +955,4 @@ function createOverlayPopup(recommendations = []) {
   overlay.querySelector("#ok-button").addEventListener("click", close);
   overlay.querySelectorAll(".post-link").forEach((l) => l.addEventListener("click", close));
 }
+//==============================================================================================
