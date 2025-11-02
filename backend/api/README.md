@@ -1,4 +1,4 @@
-# Bias Detection and Recommendation System
+# DSA3101 Group Project - API Setup
 
 A FastAPI-based system that detects political bias in text content and provides counter-narrative recommendations from Reddit to promote balanced information consumption.
 
