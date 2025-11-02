@@ -46,7 +46,7 @@ user_activity = Table(
     Column('threshold_reached', Boolean, default=False),
     Column('recommendation_triggered', Boolean, default=False),
     Column('recommended_post_urls', Text),
-    Column('timestamp', DateTime, default=func.now()),
+    Column('timestamp', DateTime, default=func.now()), 
     extend_existing=True
 )
 
@@ -81,7 +81,6 @@ local_path = './bias_model.pkl'
 
 def load_model_from_s3():
     """Download model from S3 only if not cached in volume"""
-    print(f"Checking if model exists at {local_path}...")
     # Check if model already exists in the persistent volume
     if os.path.exists(local_path):
         print("[CACHE HIT] Model found in cache, skipping download")
